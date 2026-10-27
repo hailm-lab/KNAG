@@ -1,0 +1,24 @@
+{
+  "name": "khuyen-nong-bao-gia-nong-san",
+  "version": "1.0.0",
+  "description": "Hệ thống Báo giá nông sản (TTKN An Giang): máy chủ Node.js + PostgreSQL + giao diện web.",
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --no-warnings server/server.js",
+    "build": "node tools/build-client.js",
+    "reset": "node --no-warnings server/seed.js --reset",
+    "backup": "node --no-warnings tools/backup.js",
+    "test:api": "node --no-warnings --test tests/api.test.js",
+    "test:e2e": "node --no-warnings tests/e2e.js",
+    "test:screens": "node --no-warnings tests/screens.js",
+    "test": "npm run test:api && npm run test:e2e && npm run test:flows && npm run test:screens",
+    "test:flows": "node --no-warnings tests/flows.js && node --no-warnings tests/flows2.js",
+    "pg": "node tools/pg.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

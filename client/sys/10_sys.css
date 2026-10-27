@@ -1,0 +1,3 @@
+/* Bản hệ thống: không có bảng demo; ẩn gợi ý tài khoản dùng thử khi máy chủ đặt BG_DEMO_HINTS=0 */
+#demo { display: none !important; }
+body.no-demo-hints .wl3 details { display: none; }

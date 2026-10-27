@@ -1,0 +1,20 @@
+# Render Blueprint: máy chủ Node (gói Free). Cơ sở dữ liệu là Neon, dán chuỗi kết nối vào DATABASE_URL khi tạo.
+services:
+  - type: web
+    name: bao-gia-nong-san
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.19.0
+      - key: DATABASE_URL
+        sync: false
+      - key: PGSSLMODE
+        value: require
+      - key: BG_ADMIN_PASSWORD
+        sync: false
+      - key: BG_DEMO_HINTS
+        value: "1"
