@@ -134,7 +134,7 @@ async function checkWrite(ctx, c, op, old, nu) {
 }
 
 /** Chương trình khuyến nông (Chương trình thông tin; Đào tạo huấn luyện và hợp tác): chỉ Cấp Tỉnh / Admin; báo cáo tuần đã chốt không sửa được; số liệu là số không âm */
-function checkProg(ctx, c, op, old, nu) {
+async function checkProg(ctx, c, op, old, nu) {
   if (!(ctx.level === 'tinh' || ctx.isAdmin)) return DENY('Chỉ Cấp Tỉnh / Admin quản lý Chương trình khuyến nông.');
   const okNum = (v) => typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1e13;
   if (c === 'prRep') {
@@ -145,11 +145,15 @@ function checkProg(ctx, c, op, old, nu) {
     if (!['tt', 'dt'].includes(nu.prog) || !Number.isInteger(nu.week)) return DENY('Báo cáo thiếu chương trình hoặc tuần.');
     for (const o of Object.values(nu.rows || {})) {
       if (!o || typeof o !== 'object') return DENY('Dòng số liệu không hợp lệ.');
-      for (const f of ['t', 'k']) if (o[f] != null && o[f] !== '' && !okNum(o[f])) return DENY('Tiến độ và kinh phí phải là số không âm.');
+      for (const f of ['t', 'k', 'kl']) if (o[f] != null && o[f] !== '' && !okNum(o[f])) return DENY('Tiến độ và kinh phí phải là số không âm.');
     }
     return null;
   }
-  if (op === 'del') return old && old.custom ? null : DENY('Chỉ xóa được hạng mục do người dùng thêm.');
+  if (!old || op === 'del') {     // thêm hoặc xóa hạng mục (kể cả hạng mục có sẵn trong biểu mẫu): chỉ khi chương trình còn báo cáo tuần ở trạng thái nháp (báo cáo đã chốt thì đóng băng)
+    const dr = await query("SELECT 1 FROM docs WHERE c = 'prRep' AND json->>'prog' = $1 AND json->>'st' = 'draft' LIMIT 1", [(nu || old).prog]);
+    if (!dr.rowCount) return DENY('Báo cáo tuần đã chốt, không thêm hoặc xóa hạng mục được. Tạo báo cáo tuần mới trước.');
+  }
+  if (op === 'del') return null;
   if (!['tt', 'dt'].includes(nu.prog) || typeof nu.ten !== 'string' || !nu.ten.trim()) return DENY('Hạng mục thiếu chương trình hoặc tên.');
   for (const f of ['quyMo', 'kh']) if (nu[f] != null && !(typeof nu[f] === 'number' && isFinite(nu[f]) && nu[f] > 0)) return DENY('Quy mô phải lớn hơn 0.');
   return null;

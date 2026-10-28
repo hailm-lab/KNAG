@@ -15543,8 +15543,9 @@ PR.calc = (prog, rep, vals) => {
   const reps = PR.reps(prog).filter((r) => r.week <= rep.week); const out = {};
   PR.cats(prog).filter((c) => !c.grp).forEach((c) => {
     let lk = c.lk0 || 0; let kp = c.kp0 || 0;
-    reps.forEach((r) => { const o = r.id === rep.id && vals ? { t: vals['t_' + c.id], k: vals['k_' + c.id] } : (r.rows[c.id] || {}); lk += PR.num(o.t); kp += PR.num(o.k); });
-    const kh = PR.khOf(c); out[c.id] = { lk: PR.round(lk), kp: PR.round(kp), kh, pct: kh ? (lk / kh) * 100 : null };
+    let kpAuto = kp;
+    reps.forEach((r) => { const o = r.id === rep.id && vals ? { t: vals['t_' + c.id], k: vals['k_' + c.id], kl: vals['l_' + c.id] } : (r.rows[c.id] || {}); lk += PR.num(o.t); kp += PR.num(o.k); kpAuto = kp; if (o.kl != null && o.kl !== '' && !isNaN(o.kl)) kp = PR.num(o.kl); });
+    const kh = PR.khOf(c); out[c.id] = { lk: PR.round(lk), kp: PR.round(kp), kpAuto: PR.round(kpAuto), kh, pct: kh ? (lk / kh) * 100 : null };
   });
   return out;
 };
@@ -15563,7 +15564,7 @@ PR.render = (prog) => {
   if (!reps.length) return ui.screen({ header: ui.rootHeader({ title: P.title }), body: ui.empty('Chưa có dữ liệu chương trình. Vui lòng tải lại trang sau ít phút.', 'file') });
   const rep = reps.find((r) => r.week === S.week); const edit = PR.canEdit() && rep && rep.st === 'draft'; const last = reps[reps.length - 1];
   const cats = PR.cats(prog); const key = `pr|${prog}|${rep.week}`;
-  if (edit && !Form.is(key)) { const v = {}; cats.filter((c) => !c.grp).forEach((c) => { const o = rep.rows[c.id] || {}; v['t_' + c.id] = o.t == null ? '' : o.t; v['k_' + c.id] = o.k == null ? '' : o.k; v['d_' + c.id] = o.d || ''; }); Form.start(key, v); }
+  if (edit && !Form.is(key)) { const v = {}; cats.filter((c) => !c.grp).forEach((c) => { const o = rep.rows[c.id] || {}; v['t_' + c.id] = o.t == null ? '' : o.t; v['k_' + c.id] = o.k == null ? '' : o.k; v['l_' + c.id] = o.kl == null ? '' : o.kl; v['d_' + c.id] = o.d || ''; }); Form.start(key, v); }
   const calc = PR.calc(prog, rep, edit ? Form.v : null);
   const leaves = cats.filter((c) => !c.grp); const done = leaves.filter((c) => calc[c.id].pct != null && calc[c.id].pct >= 100).length;
   const kp = W.kpis([W.kpi('Hạng mục theo dõi', leaves.length, 'theo biểu mẫu của Phòng TTTT'),
@@ -15578,20 +15579,20 @@ PR.render = (prog) => {
   const ncol = P.note ? 9 : 8; const rows = [`<tr class="grp"><td>${P.roman}</td><td colspan="${ncol - 1}">${esc(P.title)}</td></tr>`];
   cats.forEach((c) => {
     const x = calc[c.id] || {}; const o = rep.rows[c.id] || {}; const pad = c.lvl ? 'padding-left:26px' : '';
-    if (c.grp) { rows.push(`<tr class="prg"><td>${esc(c.tt)}</td><td colspan="${ncol - 4}"><b>${esc(c.ten)}</b>${PR.canEdit() ? ` <button class="ibtn" data-act="pr-add" data-prog="${prog}" data-parent="${c.id}" aria-label="Thêm mục con" title="Thêm mục con">${icon('plus', 16)}</button>${c.custom && PR.unused(c) && !PR.hasKids(c) ? `<button class="ibtn" data-act="pr-del" data-id="${c.id}" aria-label="Xóa mục" title="Xóa mục nhóm (chưa có mục con)">${icon('trash', 16)}</button>` : ''}` : ''}</td><td>${c.lkText ? `<span class="small muted">${esc(c.lkText)}</span>` : ''}</td><td></td>${P.note ? '<td></td>' : ''}</tr>`); return; }
-    const quy = `<div class="row" style="gap:6px;justify-content:flex-end;align-items:center">${PR.canEdit() && !c.lvl && PR.unused(c) ? `<button class="ibtn" data-act="pr-add" data-prog="${prog}" data-parent="${c.id}" aria-label="Thêm mục con" title="Thêm mục con">${icon('plus', 16)}</button>` : ''}${PR.canEdit() ? `<button class="ibtn" data-act="pr-adj" data-id="${c.id}" aria-label="Điều chỉnh kế hoạch" title="Điều chỉnh kế hoạch">${icon('edit', 16)}</button>` : ''}${PR.canEdit() && c.custom && PR.unused(c) && !PR.hasKids(c) ? `<button class="ibtn" data-act="pr-del" data-id="${c.id}" aria-label="Xóa hạng mục" title="Xóa hạng mục (chưa có số liệu)">${icon('trash', 16)}</button>` : ''}<span><b>${fmt.num(c.quyMo)}</b>${c.kh != null ? `<div class="small" style="color:var(--warn-fg)">KH điều chỉnh: ${fmt.num(c.kh)}</div>` : ''}</span></div>`;
+    if (c.grp) { rows.push(`<tr class="prg"><td>${esc(c.tt)}</td><td colspan="${ncol - 4}"><b>${esc(c.ten)}</b>${edit ? ` <button class="ibtn" data-act="pr-add" data-prog="${prog}" data-parent="${c.id}" aria-label="Thêm mục con" title="Thêm mục con">${icon('plus', 16)}</button><button class="ibtn" data-act="pr-del" data-id="${c.id}" aria-label="Xóa mục" title="Xóa mục nhóm và các mục con">${icon('trash', 16)}</button>` : ''}</td><td>${c.lkText ? `<span class="small muted">${esc(c.lkText)}</span>` : ''}</td><td></td>${P.note ? '<td></td>' : ''}</tr>`); return; }
+    const quy = `<div class="row" style="gap:6px;justify-content:flex-end;align-items:center">${edit && !c.lvl && PR.unused(c) ? `<button class="ibtn" data-act="pr-add" data-prog="${prog}" data-parent="${c.id}" aria-label="Thêm mục con" title="Thêm mục con">${icon('plus', 16)}</button>` : ''}${PR.canEdit() ? `<button class="ibtn" data-act="pr-adj" data-id="${c.id}" aria-label="Điều chỉnh kế hoạch" title="Điều chỉnh kế hoạch">${icon('edit', 16)}</button>` : ''}${edit ? `<button class="ibtn" data-act="pr-del" data-id="${c.id}" aria-label="Xóa hạng mục" title="Xóa hạng mục">${icon('trash', 16)}</button>` : ''}<span><b>${fmt.num(c.quyMo)}</b>${c.kh != null ? `<div class="small" style="color:var(--warn-fg)">KH điều chỉnh: ${fmt.num(c.kh)}</div>` : ''}</span></div>`;
     const tCell = edit ? ui.field({ name: 't_' + c.id, type: 'num', dec: 0, placeholder: '0' }) : (o.t != null && o.t !== '' ? fmt.num(o.t) : '<span class="muted">—</span>');
     const kCell = edit ? ui.field({ name: 'k_' + c.id, type: 'num', dec: prog === 'tt' ? 1 : 0, placeholder: '0' }) : (o.k != null && o.k !== '' ? fmt.num(o.k) : '<span class="muted">—</span>');
     const dCell = edit ? ui.field({ name: 'd_' + c.id, type: 'text', max: 300, placeholder: 'Khó khăn, vướng mắc, đề xuất...' }) : (o.d ? esc(o.d) : '<span class="muted">—</span>');
-    rows.push(`<tr><td>${esc(c.tt)}</td><td style="${pad}">${esc(c.ten)}</td><td class="r">${quy}</td><td class="r">${tCell}</td><td class="r">${kCell}</td><td>${dCell}</td><td class="r">${PR.lkCell(c, x)}</td><td class="r"><span id="pr-lkp-${c.id}">${x.kp ? fmt.num(x.kp) : '<span class="muted">—</span>'}</span></td>${P.note ? `<td class="small">${esc(c.ghiChu || '')}</td>` : ''}</tr>`);
+    rows.push(`<tr><td>${esc(c.tt)}</td><td style="${pad}">${esc(c.ten)}</td><td class="r">${quy}</td><td class="r">${tCell}</td><td class="r">${kCell}</td><td>${dCell}</td><td class="r">${PR.lkCell(c, x)}</td><td class="r">${edit ? ui.field({ name: 'l_' + c.id, type: 'num', dec: prog === 'tt' ? 1 : 0, placeholder: x.kpAuto ? fmt.num(x.kpAuto) : '0' }) : `<span id="pr-lkp-${c.id}">${x.kp ? fmt.num(x.kp) : '<span class="muted">—</span>'}</span>${o.kl != null && o.kl !== '' ? '<div class="small muted">đã chỉnh tay</div>' : ''}`}</td>${P.note ? `<td class="small">${esc(c.ghiChu || '')}</td>` : ''}</tr>`);
   });
-  if (PR.canEdit()) rows.push(`<tr class="pradd"><td colspan="${ncol}"><button class="btn sm outline" data-act="pr-add" data-prog="${prog}" style="min-width:0">${icon('plus', 16)}Thêm hạng mục</button></td></tr>`);
+  if (edit) rows.push(`<tr class="pradd"><td colspan="${ncol}"><button class="btn sm outline" data-act="pr-add" data-prog="${prog}" style="min-width:0">${icon('plus', 16)}Thêm hạng mục</button></td></tr>`);
   const table = `<div class="wt-wrap prt"><table class="wt">${head}<tbody>${rows.join('')}</tbody></table></div>`;
   const unit = prog === 'tt' ? ui.note('Kinh phí giữ nguyên số liệu trong biểu mẫu Phòng TTTT cung cấp; đơn vị tính (đồng hay nghìn đồng) đang chờ Phòng xác nhận.', 'grey') : '';
   const state = rep.st === 'sent' ? ui.note(`Báo cáo ${PR.wlabel(rep)} đã chốt, không sửa được.${rep === last ? ' Tạo báo cáo tuần tiếp theo để nhập số liệu mới; lũy kế được cộng dồn từ báo cáo này.' : ''}`, 'info') : ui.note('Nhập tiến độ và kinh phí của tuần; lũy kế và tỷ lệ đạt kế hoạch tự cập nhật. Bấm Lưu nháp để giữ lại, Chốt báo cáo khi hoàn thành tuần.', 'info');
   const foot = !PR.canEdit() ? '' : edit ? `<div class="actionbar"><button class="btn outline" data-act="pr-save" data-prog="${prog}">${icon('save', 16)}Lưu nháp</button><button class="btn" data-act="pr-close" data-prog="${prog}">${icon('check', 16)}Chốt báo cáo tuần ${rep.week}</button></div>`
     : rep === last ? `<div class="actionbar"><button class="btn" data-act="pr-new" data-prog="${prog}">${icon('plus', 16)}Tạo báo cáo tuần ${rep.week + 1}</button></div>` : '';
-  return ui.screen({ header: ui.rootHeader({ title: P.title, sub: `<span class="chip ok sm" style="font-weight:700">${esc(PR.wlabel(rep))}</span>`, actions: `${edit ? `<button class="btn sm outline" data-act="pr-import" data-prog="${prog}" style="min-width:0">${icon('upload', 16)}Nhập từ Excel</button>` : ''}<button class="btn sm outline" data-act="bgf" data-k="prog_${prog}" style="min-width:0">${icon('excel', 16)}Xuất Excel</button>` }), body: `${kp}${filt}${state}${unit}${table}`, footer: foot });
+  return ui.screen({ header: ui.rootHeader({ title: P.title, sub: `<span class="chip ok sm" style="font-weight:700">${esc(PR.wlabel(rep))}</span>`, actions: `${edit ? `<button class="btn sm outline" data-act="pr-import" data-prog="${prog}" style="min-width:0">${icon('upload', 16)}Nhập từ Excel</button>` : ''}<button class="btn sm outline" data-act="pr-export" data-prog="${prog}" style="min-width:0">${icon('excel', 16)}Xuất Excel</button>` }), body: `${kp}${filt}${state}${unit}${table}`, footer: foot });
 };
 
 /** Cập nhật lũy kế, tỷ lệ và tổng kinh phí ngay khi gõ (không vẽ lại màn hình để giữ con trỏ) */
@@ -15599,7 +15600,7 @@ PR.paint = (prog) => {
   const rep = PR.reps(prog).find((r) => r.week === PR.state(prog).week); if (!rep || rep.st !== 'draft') return;
   const calc = PR.calc(prog, rep, Form.v); const q = (id) => App.el.querySelector('#' + id);
   PR.cats(prog).filter((c) => !c.grp).forEach((c) => {
-    const x = calc[c.id]; const a = q('pr-lk-' + c.id); const b = q('pr-pct-' + c.id); const k = q('pr-lkp-' + c.id);
+    const x = calc[c.id]; const a = q('pr-lk-' + c.id); const b = q('pr-pct-' + c.id); const k = q('pr-lkp-' + c.id); const li = q('f_l_' + c.id); if (li) li.placeholder = x.kpAuto ? fmt.num(x.kpAuto) : '0';
     if (a) a.textContent = fmt.num(x.lk); if (b) { b.textContent = x.pct != null ? `đạt ${PR.pct(x.pct)}% KH` : ''; b.style.color = x.pct != null && x.pct >= 100 ? 'var(--g700)' : 'var(--muted)'; } if (k) k.innerHTML = x.kp ? fmt.num(x.kp) : '<span class="muted">—</span>';
   });
   const t = q('pr-tot'); if (t) t.textContent = fmt.num(PR.totalKp(calc));
@@ -15612,19 +15613,19 @@ PR.paint = (prog) => {
     onInput(el, p, name, val) {
       if (name === 'prweek') { PR.state(prog).week = Number(val); refresh(); return; }
       if ((name === 'parent' || name === 'kind') && PR.add) { ui.updateSheet(PR.add.sid, { body: PR.add.body() }); return; }
-      if (/^[tk]_/.test(name)) PR.paint(prog);
+      if (/^[tkl]_/.test(name)) PR.paint(prog);
     },
   };
 });
 
 PR.collect = (prog, rep) => {
   const rows = {}; PR.cats(prog).filter((c) => !c.grp).forEach((c) => {
-    const t = Form.v['t_' + c.id]; const k = Form.v['k_' + c.id]; const d = String(Form.v['d_' + c.id] || '').trim();
-    if ((t === '' || t == null) && (k === '' || k == null) && !d) return;
-    rows[c.id] = { t: t === '' || t == null ? null : PR.num(t), k: k === '' || k == null ? null : PR.num(k), d };
+    const t = Form.v['t_' + c.id]; const k = Form.v['k_' + c.id]; const l = Form.v['l_' + c.id]; const d = String(Form.v['d_' + c.id] || '').trim(); const none = (v) => v === '' || v == null;
+    if (none(t) && none(k) && none(l) && !d) return;
+    rows[c.id] = { t: none(t) ? null : PR.num(t), k: none(k) ? null : PR.num(k), d }; if (!none(l)) rows[c.id].kl = PR.num(l);
   }); return rows;
 };
-PR.bad = (prog) => PR.cats(prog).filter((c) => !c.grp).filter((c) => ['t_', 'k_'].some((p) => { const v = Form.v[p + c.id]; return v !== '' && v != null && (isNaN(v) || Number(v) < 0); })).map((c) => c.ten);
+PR.bad = (prog) => PR.cats(prog).filter((c) => !c.grp).filter((c) => ['t_', 'k_', 'l_'].some((p) => { const v = Form.v[p + c.id]; return v !== '' && v != null && (isNaN(v) || Number(v) < 0); })).map((c) => c.ten);
 PR.current = (prog) => PR.reps(prog).find((r) => r.week === PR.state(prog).week);
 
 Object.assign(Actions, {
@@ -15770,7 +15771,7 @@ PR.addFields = (prog) => {
   return f;
 };
 Actions['pr-add'] = (el, d) => {
-  if (!PR.canEdit()) return; const prog = d.prog; PR.flush(prog); Form.start('pr-add', { parent: d.parent || '', kind: 'item', ten: '', dvt: '', quyMo: '' });
+  if (!PR.canEdit()) return; const prog = d.prog; const rp = PR.current(prog); if (!rp || rp.st !== 'draft') { ui.toast('Báo cáo tuần đã chốt, không thêm hạng mục được. Tạo báo cáo tuần mới để thêm.', 'warn'); return; } PR.flush(prog); Form.start('pr-add', { parent: d.parent || '', kind: 'item', ten: '', dvt: '', quyMo: '' });
   const body = () => { const pc = Form.v.parent ? DB.get('prCat', Form.v.parent) : null; const conv = pc && !pc.grp ? ui.note(`"${esc(pc.ten)}" chưa có số liệu nên sẽ thành mục nhóm: quy mô và số liệu nhập ở các mục con.`, 'warn') : '';
     return `<div class="small muted" style="margin-bottom:10px">${esc(PR.PROG[prog].title)}</div>${ui.fields(PR.addFields(prog))}${conv}`; };
   const sid = ui.sheet({ title: 'Thêm hạng mục', body: body(), onClose: () => { PR.add = null; }, actions: [{ label: 'Hủy', cls: 'ghost' }, { label: 'Thêm', onClick: () => {
@@ -15786,26 +15787,58 @@ Actions['pr-add'] = (el, d) => {
     DB.all('prCat').push(c); [...cats.slice(0, at + 1), c, ...cats.slice(at + 1)].forEach((x, i) => { x.order = i + 1; }); DB.log(c, 'Thêm hạng mục'); ui.toast(isGrp ? 'Đã thêm mục nhóm' : 'Đã thêm hạng mục', 'ok'); refresh(); return true; } }] });
   PR.add = { sid, body };
 };
+/** Xóa một mục (kể cả mục có sẵn trong biểu mẫu). Mục nhóm xóa kèm các mục con. Chỉ khi báo cáo tuần đang xem là bản nháp; TT các mục chính được đánh lại liên tục. */
 Actions['pr-del'] = (el, d) => {
-  const c = DB.get('prCat', d.id); if (!c || !c.custom || !PR.canEdit()) return;
-  if (!PR.unused(c)) { ui.toast('Hạng mục đã có số liệu, không xóa được', 'warn'); return; }
-  ui.confirm('Xóa hạng mục?', `"${c.ten}" chưa có số liệu và sẽ bị xóa khỏi chương trình.`, () => { PR.flush(c.prog); DB.remove('prCat', c.id); ui.toast('Đã xóa hạng mục', 'ok'); refresh(); }, { okLabel: 'Xóa', okCls: 'danger' });
+  const c = DB.get('prCat', d.id); if (!c || !PR.canEdit()) return; const prog = c.prog; const rp = PR.current(prog);
+  if (!rp || rp.st !== 'draft') { ui.toast('Báo cáo tuần đã chốt, không xóa hạng mục được', 'warn'); return; }
+  const cats = PR.cats(prog); const i = cats.findIndex((x) => x.id === c.id); const kids = !c.lvl && cats[i + 1] && cats[i + 1].lvl === 1 ? cats.slice(i + 1, PR.lastChildIdx(cats, i) + 1) : []; const gone = [c].concat(kids);
+  const hasData = gone.some((x) => !PR.unused(x));
+  const msg = `${kids.length ? `"${c.ten}" và ${kids.length} mục con của nó sẽ bị xóa. ` : `"${c.ten}" sẽ bị xóa khỏi chương trình. `}${hasData ? 'Mục này có số liệu (số đầu kỳ hoặc đã nhập): xóa sẽ làm thay đổi lũy kế và tổng kinh phí của các tuần, kể cả tuần đã chốt. ' : ''}Không hoàn tác được.`;
+  ui.confirm(kids.length ? 'Xóa mục nhóm và các mục con?' : 'Xóa hạng mục?', msg, () => {
+    PR.flush(prog); const ids = gone.map((x) => x.id);
+    PR.reps(prog).filter((r) => r.st === 'draft').forEach((r) => ids.forEach((id) => { delete r.rows[id]; }));
+    ids.forEach((id) => DB.remove('prCat', id));
+    let n = 0; PR.cats(prog).forEach((x, k) => { x.order = k + 1; if (!x.lvl && /^\d+$/.test(x.tt)) x.tt = String(++n); });
+    App.tmp.form = null; saveState(); ui.toast(kids.length ? `Đã xóa mục nhóm và ${kids.length} mục con` : 'Đã xóa hạng mục', 'ok'); refresh();
+  }, { okLabel: 'Xóa', okCls: 'danger' });
 };
-/** Tệp mẫu: giữ phần tiêu đề của biểu mẫu Phòng TTTT (đã xóa số liệu), dựng lại các dòng hạng mục theo danh mục hiện có (đúng thứ tự, có mục nhóm / mục con) với kiểu ô của biểu mẫu */
+/** Dựng tệp .xlsx từ BIỂU MẪU của Phòng TTTT (bản đã xóa số liệu): giữ nguyên tiêu đề 2 tầng, ô gộp, phông, màu, viền; dựng lại các dòng hạng mục theo danh mục hiện có (đúng thứ tự, mục nhóm / mục con).
+    rep có giá trị: điền số liệu của báo cáo tuần đó và đổi tiêu đề kỳ (Tuần, ngày); rep rỗng: để trống phần số liệu (tệp mẫu). */
 PR.TSTY = {
-  tt: { head: 4, grp: [13, 14, 8, 11, 11, 16, 8, 12, 8], l1: [10, 17, 15, 11, 11, 11, 18, 12, 8], l0: [13, 17, 15, 11, 11, 11, 18, 12, 8] },
-  dt: { head: 5, grp: [13, 14, 8, 11, 11, 16, 8, 12], l1: [10, 24, 15, 8, 8, 8, 6, 31], l0: [10, 24, 15, 8, 8, 8, 6, 31] },
+  tt: { head: 4, last: 'I', grp: [13, 14, 8, 11, 11, 16, 8, 12, 8], l1: [10, 17, 15, 11, 11, 11, 18, 12, 8], l0: [13, 17, 15, 11, 11, 11, 18, 12, 8], w: [6, 34, 12, 12, 16, 28, 24, 18, 26] },
+  dt: { head: 5, last: 'H', grp: [13, 14, 8, 11, 11, 16, 8, 12], l1: [10, 24, 15, 8, 8, 8, 6, 31], l0: [10, 24, 15, 8, 8, 8, 6, 31], w: [6, 34, 12, 12, 16, 28, 24, 18] },
 };
-PR.tmplWithCustom = async (prog) => {
-  const blob = PR.tmplBlob(prog); const S = PR.TSTY[prog]; const files = await BGX.unzip(await blob.arrayBuffer());
+PR.xlsxBuild = async (prog, rep) => {
+  const S = PR.TSTY[prog]; const files = await BGX.unzip(await PR.tmplBlob(prog).arrayBuffer()); const calc = rep ? PR.calc(prog, rep) : {};
   const key = Object.keys(files).find((k) => /^xl\/worksheets\/sheet\d+\.xml$/.test(k)); let x = BGX.dec.decode(files[key]);
-  const cols = 'ABCDEFGHI'.slice(0, S.l0.length);
-  const rows = PR.cats(prog).map((c, i) => { const r = S.head + 1 + i; const sty = c.grp ? S.grp : c.lvl ? S.l1 : S.l0;
-    return `<row r="${r}" spans="1:${cols.length}">` + cols.split('').map((col, j) => { const st = ` s="${sty[j]}"`; const v = col === 'A' ? c.tt : col === 'B' ? c.ten : null;
-      return v == null || v === '' ? `<c r="${col}${r}"${st}/>` : `<c r="${col}${r}"${st} t="inlineStr"><is><t xml:space="preserve">${BGX.x(v)}</t></is></c>`; }).join('') + '</row>'; }).join('');
+  const cols = 'ABCDEFGHI'.slice(0, S.l0.length).split('');
+  // kiểu ô số có hàng nghìn cho kinh phí (thêm một kiểu mới vào bảng kiểu của tệp)
+  let sty = BGX.dec.decode(files['xl/styles.xml']); const nxf = Number((/<cellXfs count="(\d+)"/.exec(sty) || [])[1]); const KPSTY = nxf;
+  sty = sty.replace(/<cellXfs count="\d+">/, `<cellXfs count="${nxf + 1}">`).replace('</cellXfs>', '<xf numFmtId="4" fontId="3" fillId="0" borderId="5" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" wrapText="1"/></xf></cellXfs>'); files['xl/styles.xml'] = BGX.enc.encode(sty);
+  const cell = (col, r, st, v) => (v == null || v === '' ? `<c r="${col}${r}" s="${st}"/>` : typeof v === 'number' ? `<c r="${col}${r}" s="${st}"><v>${v}</v></c>` : `<c r="${col}${r}" s="${st}" t="inlineStr"><is><t xml:space="preserve">${BGX.x(v)}</t></is></c>`);
+  const lines = (s, w) => Math.max(1, Math.ceil(String(s || '').length / (w * 1.05)));
+  const rows = PR.cats(prog).map((c, i) => {
+    const r = S.head + 1 + i; const st = (c.grp ? S.grp : c.lvl ? S.l1 : S.l0).slice(); const o = rep ? (rep.rows[c.id] || {}) : {}; const xx = calc[c.id] || {};
+    const lk = !rep ? '' : c.lkText && !xx.lk ? c.lkText : c.grp ? (c.lkText || '') : `${fmt.num(xx.lk)}${xx.kh != null ? '/' + fmt.num(xx.kh) : ''}${xx.pct != null ? `, đạt ${PR.pct(xx.pct)}% KH` : ''}`;
+    const tt = /^\d+$/.test(c.tt) ? Number(c.tt) : c.tt;
+    const v = [tt, c.ten, rep && !c.grp ? c.quyMo : '', o.t, o.k, o.d, lk, rep && !c.grp && xx.kp ? xx.kp : '', rep && !c.grp ? c.ghiChu || '' : ''];
+    if (!c.grp) { st[3] = 15; st[4] = prog === 'tt' ? KPSTY : 31; st[7] = prog === 'tt' ? 21 : 31; }
+    const ht = Math.max(30, 17 * Math.max(lines(c.ten, S.w[1]), lines(o.d, S.w[5]), lines(lk, S.w[6]), lines(v[8], S.w[8] || 20)) + 8);
+    return `<row r="${r}" spans="1:${cols.length}" ht="${ht}" customHeight="1">${cols.map((col, j) => cell(col, r, st[j], v[j])).join('')}</row>`;
+  }).join('');
   x = x.replace(/<row r="(\d+)"[^>]*(?:\/>|>[\s\S]*?<\/row>)/g, (m, r) => (Number(r) > S.head ? '' : m)).replace('</sheetData>', rows + '</sheetData>')
-    .replace(/<dimension ref="([A-Z]+\d+):([A-Z]+)\d+"/, `<dimension ref="$1:$2${S.head + PR.cats(prog).length}"`); files[key] = BGX.enc.encode(x);
+    .replace(/<dimension ref="([A-Z]+\d+):([A-Z]+)\d+"/, `<dimension ref="$1:$2${S.head + PR.cats(prog).length}"`)
+    .replace(/<cols>[\s\S]*?<\/cols>/, `<cols>${S.w.map((w, j) => `<col min="${j + 1}" max="${j + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`);
+  if (rep && prog === 'dt') x = x.replace('<c r="H5" s="30"/>', `<c r="H5" s="30"><v>${PR.totalKp(calc)}</v></c>`);       // dòng tổng của nhóm II
+  files[key] = BGX.enc.encode(x);
+  if (rep) files['xl/sharedStrings.xml'] = BGX.enc.encode(BGX.dec.decode(files['xl/sharedStrings.xml']).replace(/TUẦN 43/g, 'TUẦN ' + rep.week).replace(/30\/10\/2026/g, PR.fmtTo(rep.to)));   // tiêu đề kỳ báo cáo
   return new Blob([BGX.zip(Object.keys(files).map((name) => ({ name, data: files[name] })))], { type: BGX.mime(PR.TMPL[prog].name) });
+};
+PR.tmplWithCustom = (prog) => PR.xlsxBuild(prog, null);
+/** Xuất Excel: đúng biểu mẫu của Phòng TTTT, điền số liệu của kỳ báo cáo đang chọn */
+Actions['pr-export'] = async (el, d) => {
+  PR.ensure(); PR.flush(d.prog); const rep = PR.current(d.prog); if (!rep) return;
+  try { await BGX.save(`${PR.IMPFILE[d.prog]}_Tuan${rep.week}.xlsx`, await PR.xlsxBuild(d.prog, rep)); } catch (e) { console.error(e); ui.toast('Không tạo được tệp Excel: ' + (e.message || 'lỗi'), 'bad'); }
 };
 
 ;

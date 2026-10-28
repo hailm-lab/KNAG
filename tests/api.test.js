@@ -221,7 +221,7 @@ test('Chương trình khuyến nông: chỉ Cấp Tỉnh / Admin đọc và ghi;
   const st = (await tinh.call('GET', '/api/state')).body; assert.strictEqual(st.db.prCat.length, 25, '19 + 6 hạng mục'); assert.strictEqual(st.db.prRep.length, 4, '2 chương trình × 2 tuần');
   for (const who of [xa, tw]) { const s = (await who.call('GET', '/api/state')).body; assert.ok(!(s.db.prCat || []).length && !(s.db.prRep || []).length, 'không nhận dữ liệu chương trình'); }
   const draft = st.db.prRep.find((r) => r.id === 'dt|44'); assert.strictEqual(draft.st, 'draft');
-  const edit = { ...draft, rows: { dt04: { t: 2, k: 40000000, d: 'Đã mở lớp' } } };
+  const edit = { ...draft, rows: { dt04: { t: 2, k: 40000000, kl: 250000000, d: 'Đã mở lớp' } } };
   for (const who of [xa, tw]) assert.strictEqual((await who.call('POST', '/api/sync', { ops: [put('prRep', edit, st.vers.prRep['dt|44'])] })).body.results[0].code, 'forbidden');
   const ok = (await tinh.call('POST', '/api/sync', { ops: [put('prRep', edit, st.vers.prRep['dt|44'])] })).body.results[0]; assert.strictEqual(ok.ok, true, JSON.stringify(ok));
   const sa = (await ad.call('GET', '/api/state')).body; const okAd = (await ad.call('POST', '/api/sync', { ops: [put('prRep', { ...sa.db.prRep.find((r) => r.id === 'dt|44'), rows: { dt04: { t: 3, k: 1, d: '' } } }, sa.vers.prRep['dt|44'])] })).body.results[0]; assert.strictEqual(okAd.ok, true, 'Admin (phòng TTTT) ghi được: ' + JSON.stringify(okAd));
@@ -232,6 +232,7 @@ test('Chương trình khuyến nông: số âm hoặc không phải số bị t�
   const code = async (doc, ver) => (await tinh.call('POST', '/api/sync', { ops: [put('prRep', doc, ver)] })).body.results[0].code;
   assert.strictEqual(await code({ ...draft, rows: { tt02: { t: -1, k: 0, d: '' } } }, v['tt|44']), 'forbidden', 'số âm');
   assert.strictEqual(await code({ ...draft, rows: { tt02: { t: 'abc', k: 0, d: '' } } }, v['tt|44']), 'forbidden', 'không phải số');
+  assert.strictEqual(await code({ ...draft, rows: { tt02: { t: 1, k: 0, kl: -5, d: '' } } }, v['tt|44']), 'forbidden', 'kinh phí lũy kế chỉnh tay không âm');
   assert.strictEqual(await code({ ...sent, rows: { tt02: { t: 1, k: 0, d: '' } } }, v['tt|43']), 'forbidden', 'báo cáo đã chốt không sửa');
   assert.strictEqual(await code({ ...draft, week: 99 }, v['tt|44']), 'forbidden', 'không đổi tuần');
   assert.strictEqual((await tinh.call('POST', '/api/sync', { ops: [{ c: 'prRep', id: 'tt|44', op: 'del', base: v['tt|44'] }] })).body.results[0].code, 'forbidden', 'không xóa báo cáo tuần');
@@ -239,20 +240,22 @@ test('Chương trình khuyến nông: số âm hoặc không phải số bị t�
   const s2 = (await tinh.call('GET', '/api/state')).body; assert.strictEqual(await code({ ...s2.db.prRep.find((r) => r.id === 'tt|44'), rows: { tt02: { t: 9, k: 0, d: '' } } }, s2.vers.prRep['tt|44']), 'forbidden', 'đã chốt thì không sửa số liệu nữa');
 });
 
-test('Chương trình khuyến nông: thêm hạng mục, xóa chỉ với hạng mục do người dùng thêm', async () => {
+test('Chương trình khuyến nông: thêm và xóa hạng mục chỉ khi còn báo cáo tuần nháp', async () => {
   const tinh = client('0|tttt'); await tinh.login('khoa.pm.tinh'); const st = (await tinh.call('GET', '/api/state')).body;
-  const mine = { id: 'ttcTEST1', prog: 'tt', tt: '14', lvl: 0, ten: 'Hội nghị thử (cuộc)', quyMo: 5, kh: null, lk0: 0, kp0: 0, lkText: '', ghiChu: '', grp: false, order: 20, custom: true, log: [] };
+  const mine = { id: 'dtcTEST1', prog: 'dt', tt: '7', lvl: 0, ten: 'Hội nghị thử (cuộc)', quyMo: 5, kh: null, lk0: 0, kp0: 0, lkText: '', ghiChu: '', grp: false, order: 20, custom: true, log: [] };
   const r1 = (await tinh.call('POST', '/api/sync', { ops: [put('prCat', mine, 0)] })).body.results[0]; assert.strictEqual(r1.ok, true, JSON.stringify(r1));
-  assert.strictEqual((await tinh.call('POST', '/api/sync', { ops: [put('prCat', { ...mine, id: 'ttcTEST2', quyMo: -3 }, 0)] })).body.results[0].code, 'forbidden', 'quy mô phải > 0');
-  assert.strictEqual((await tinh.call('POST', '/api/sync', { ops: [{ c: 'prCat', id: 'tt02', op: 'del', base: st.vers.prCat.tt02 }] })).body.results[0].code, 'forbidden', 'không xóa hạng mục của biểu mẫu');
-  const del = (await tinh.call('POST', '/api/sync', { ops: [{ c: 'prCat', id: 'ttcTEST1', op: 'del', base: r1.ver }] })).body.results[0]; assert.strictEqual(del.ok, true, JSON.stringify(del));
+  assert.strictEqual((await tinh.call('POST', '/api/sync', { ops: [put('prCat', { ...mine, id: 'ttcTEST3', prog: 'tt', tt: '14' }, 0)] })).body.results[0].code, 'forbidden', 'chương trình thông tin đã chốt hết các tuần: không thêm hạng mục');
+  assert.strictEqual((await tinh.call('POST', '/api/sync', { ops: [put('prCat', { ...mine, id: 'dtcTEST2', quyMo: -3 }, 0)] })).body.results[0].code, 'forbidden', 'quy mô phải > 0');
+  assert.strictEqual((await tinh.call('POST', '/api/sync', { ops: [{ c: 'prCat', id: 'tt02', op: 'del', base: st.vers.prCat.tt02 }] })).body.results[0].code, 'forbidden', 'chương trình thông tin đã chốt hết các tuần: không xóa hạng mục');
+  const delOrig = (await tinh.call('POST', '/api/sync', { ops: [{ c: 'prCat', id: 'dt06', op: 'del', base: st.vers.prCat.dt06 }] })).body.results[0]; assert.strictEqual(delOrig.ok, true, 'xóa được cả hạng mục có sẵn khi còn báo cáo nháp: ' + JSON.stringify(delOrig));
+  const del = (await tinh.call('POST', '/api/sync', { ops: [{ c: 'prCat', id: 'dtcTEST1', op: 'del', base: r1.ver }] })).body.results[0]; assert.strictEqual(del.ok, true, JSON.stringify(del));
 });
 
 test('nạp bổ sung Chương trình khuyến nông cho cơ sở dữ liệu đã có dữ liệu (không đụng dữ liệu đang có, chạy lại an toàn)', async () => {
   const db = require('../server/db'); const seed = require('../server/seed');
-  const before = await db.docs.count(); assert.strictEqual(await seed.ensureAdditive(), 0, 'đã có thì không nạp lại');
+  const before = await db.docs.count(); const had = (await db.query("SELECT COUNT(*)::int AS n FROM docs WHERE c IN ('prCat', 'prRep')")).rows[0].n; assert.strictEqual(await seed.ensureAdditive(), 0, 'đã có thì không nạp lại');
   await db.query("DELETE FROM docs WHERE c IN ('prCat', 'prRep')"); const cur0 = await db.docs.cursor();
-  assert.strictEqual(await seed.ensureAdditive(), 29, 'thiếu cả hai thì nạp 25 + 4'); assert.strictEqual(await db.docs.count(), before);
+  assert.strictEqual(await seed.ensureAdditive(), 29, 'thiếu cả hai thì nạp 25 + 4'); assert.strictEqual(await db.docs.count(), before - had + 29, 'chỉ thêm các bản ghi chương trình, không đụng dữ liệu khác');
   assert.ok((await db.docs.changesSince(cur0)).length >= 29, 'thay đổi được ghi vào nhật ký đồng bộ để trình duyệt đang mở nhận được');
   assert.strictEqual(await seed.ensureAdditive(), 0, 'chạy lại không nạp thêm');
   await db.query("DELETE FROM docs WHERE c = 'prRep'"); assert.strictEqual(await seed.ensureAdditive(), 0, 'chỉ thiếu một collection (đã có dữ liệu của người dùng) thì không nạp để khỏi ghi đè');
