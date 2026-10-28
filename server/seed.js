@@ -35,6 +35,16 @@ async function importSeed() {
   return n;
 }
 
+/** Collection thêm sau khi hệ thống đã chạy: nạp từ data/seed.json khi CẢ HAI còn trống (không đụng dữ liệu đã có; chạy lại nhiều lần vẫn an toàn) */
+const ADDITIVE = ['prCat', 'prRep'];
+async function ensureAdditive() {
+  if (!fs.existsSync(SEED_FILE)) return 0;
+  const seed = JSON.parse(fs.readFileSync(SEED_FILE, 'utf8')); if (!ADDITIVE.every((c) => Array.isArray(seed[c]) && seed[c].length)) return 0;
+  const have = await db.query('SELECT COUNT(*)::int AS n FROM docs WHERE c = ANY($1)', [ADDITIVE]); if (have.rows[0].n) return 0;
+  let n = 0; await db.tx(async (cl) => { for (const c of ADDITIVE) for (const d of seed[c]) { await db.docs.put(c, d.id, d, 'seed', cl); n++; } });
+  await db.audit(null, 'meta', 'seed-programs', 'create', `Nạp bổ sung Chương trình khuyến nông: ${n} bản ghi`); console.log(`Đã nạp bổ sung Chương trình khuyến nông: ${n} bản ghi.`); return n;
+}
+
 async function ensureSeeded() {
   if (!(await isEmpty())) return false;
   if (!fs.existsSync(SEED_FILE)) { console.warn('Chưa có data/seed.json: cơ sở dữ liệu để trống.'); return false; }
@@ -50,4 +60,4 @@ if (require.main === module) {
   })().catch((e) => { console.error('Lỗi:', e.message); process.exit(1); });
 }
 
-module.exports = { ensureSeeded, importSeed, wipe, isEmpty };
+module.exports = { ensureAdditive, ensureSeeded, importSeed, wipe, isEmpty };

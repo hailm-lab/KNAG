@@ -13,7 +13,7 @@ const Sys = {
   vers: {}, snap: {}, cursor: 0,
   busy: false, again: false, polling: false, offline: false, dirtyUI: false, timer: null,
   cfg: { demoHints: true },
-  COLS: ['xa', 'depts', 'users', 'notifs', 'bgPhieu', 'bgAlert', 'bgBoard', 'bgProp', 'bgRemind', 'bgLog', 'bgLock', 'bgSyn', 'bgRound', 'bgSrv', 'bgItem', 'bgGroup', 'bgSet', 'bgCfg', 'bgXa', 'bgSys'],
+  COLS: ['xa', 'depts', 'users', 'notifs', 'bgPhieu', 'bgAlert', 'bgBoard', 'bgProp', 'bgRemind', 'bgLog', 'bgLock', 'bgSyn', 'bgRound', 'bgSrv', 'bgItem', 'bgGroup', 'bgSet', 'bgCfg', 'bgXa', 'bgSys', 'prCat', 'prRep'],
 };
 
 /* ---------------- Gọi API ---------------- */
@@ -279,3 +279,6 @@ Screens['sys-audit'] = {
   },
 };
 Actions['sys-audit-reload'] = function () { App.tmp.sysAudit = null; refresh(); };
+
+/* Chương trình khuyến nông: dữ liệu ban đầu do máy chủ nạp (server/seed.js); trình duyệt không tự nạp để tránh hai người cùng đẩy lên một lúc */
+if (typeof PR !== 'undefined') PR.ensure = () => { };

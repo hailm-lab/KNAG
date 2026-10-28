@@ -39,7 +39,7 @@ Lần chạy đầu tiên (khoảng 20 giây) hệ thống tự: cài thư việ
 | Dừng PostgreSQL riêng | `dung-postgres.bat` (máy chủ Báo giá tự bật lại khi chạy `start.bat`) |
 | Đưa dữ liệu về ban đầu | `reset-du-lieu.bat` (xóa hết, nạp lại dữ liệu mẫu) |
 | Dựng lại giao diện sau khi sửa mã | `node tools/build-client.js` |
-| Chạy kiểm thử | `npm test` (mỗi lần tạo một database PostgreSQL tạm rồi xóa; cần Chrome và thư viện puppeteer-core có sẵn trong `../Prototype_Mobile/tools/node_modules`): API 21 ca · trình duyệt thật 17 bước · luồng bấm nút thật 8 + 13 bước · duyệt 52 màn hình menu |
+| Chạy kiểm thử | `npm test` (mỗi lần tạo một database PostgreSQL tạm rồi xóa; cần Chrome và thư viện puppeteer-core có sẵn trong `../Prototype_Mobile/tools/node_modules`): API 25 ca · trình duyệt thật 17 bước · luồng bấm nút thật 8 + 13 + 9 bước · duyệt 58 màn hình menu |
 
 **Kết nối cơ sở dữ liệu (PostgreSQL riêng):** máy chủ `127.0.0.1` · cổng `5440` · cơ sở dữ liệu `baogia` · người dùng `bg_admin` · mật khẩu sinh ngẫu nhiên, nằm trong `%LOCALAPPDATA%BaoGiaNongSanpg-password.txt` (chạy `node tools/pg.js info` để xem đường dẫn). Dữ liệu PostgreSQL nằm ở `%LOCALAPPDATA%BaoGiaNongSanpgdata` (không nằm trong thư mục dự án vì PostgreSQL trên Windows không đọc được đường dẫn có dấu tiếng Việt). Muốn dùng PostgreSQL khác của đơn vị: đặt `DATABASE_URL=postgresql://người_dùng:mật_khẩu@máy_chủ:5432/baogia`, các bảng tự được tạo.
 

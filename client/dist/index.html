@@ -1599,6 +1599,19 @@ button.wxa:hover{background:#DCEFE1;color:#14693A}
 .web .wfilter:has(.fchip[data-act$="mine"]){column-gap:4px}
 .web .wfilter select.inp{font-size:13px;padding-left:8px;padding-right:20px}
 
+/* web/56_web_prog.css */
+/* 56_web_prog.css — bảng báo cáo tuần Chương trình thông tin / đào tạo huấn luyện và hợp tác */
+.prt table.wt th{white-space:normal;vertical-align:middle;line-height:1.35}
+.prt table.wt th.c{text-align:center}
+.prt table.wt td .fld{margin:0}
+.prt table.wt{min-width:1180px}
+.prt table.wt td input.inp{min-width:84px}
+.prt table.wt td{font-size:13.5px}
+.prt table.wt tr.prg td{background:#F3F6F4;border-top:1px solid var(--line3,#E8EDE9)}
+.prt table.wt td .small{line-height:1.35}
+.prt table.wt tr.pradd td{background:#FAFCFA;padding:8px 12px}
+.prt table.wt tr.prg td .ibtn{display:inline-flex;vertical-align:middle;margin-left:6px}
+
 /* sys/10_sys.css */
 /* Bản hệ thống: không có bảng demo; ẩn gợi ý tài khoản dùng thử khi máy chủ đặt BG_DEMO_HINTS=0 */
 #demo { display: none !important; }
@@ -13891,10 +13904,10 @@ BGX.xlsx = (sheets) => {
 
 /* ---------------- XLSX / CSV: đọc ---------------- */
 BGX.colIdx = (ref) => { const m = /^([A-Z]+)/.exec(ref || ''); if (!m) return 0; let n = 0; for (const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
-BGX.readXlsx = async (buf) => {
+BGX.readXlsx = async (buf, pick) => {
   const z = await BGX.unzip(buf); const txt = (n) => (z[n] ? BGX.dec.decode(z[n]) : null); const xml = (n) => { const t = txt(n); return t ? new DOMParser().parseFromString(t, 'application/xml') : null; };
   const wb = xml('xl/workbook.xml'); if (!wb) throw new Error('Không phải tệp .xlsx hợp lệ');
-  const rels = xml('xl/_rels/workbook.xml.rels'); const sh = wb.getElementsByTagName('sheet')[0]; if (!sh) throw new Error('Tệp không có trang tính');
+  const rels = xml('xl/_rels/workbook.xml.rels'); const shs = [...wb.getElementsByTagName('sheet')]; const sh = (pick && shs.find((s) => pick(s.getAttribute('name') || ''))) || shs[0]; if (!sh) throw new Error('Tệp không có trang tính');
   const rid = sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id'); let target = 'worksheets/sheet1.xml';
   if (rels) [...rels.getElementsByTagName('Relationship')].forEach((r) => { if (r.getAttribute('Id') === rid) target = r.getAttribute('Target'); });
   target = target.replace(/^\//, ''); const path = target.startsWith('xl/') ? target : 'xl/' + target;
@@ -13920,18 +13933,18 @@ BGX.readCsv = (text) => {
   return rows;
 };
 /** Đọc tệp người dùng chọn (.xlsx hoặc .csv) → mảng các dòng (mảng ô) */
-BGX.readFile = async (file) => {
+BGX.readFile = async (file, pick) => {
   const name = String(file.name || '').toLowerCase();
-  if (/\.xlsx$/.test(name)) return BGX.readXlsx(await file.arrayBuffer());
+  if (/\.xlsx$/.test(name)) return BGX.readXlsx(await file.arrayBuffer(), pick);
   if (/\.(csv|txt|tsv)$/.test(name)) return BGX.readCsv(await file.text());
   if (/\.xls$/.test(name)) throw new Error('Tệp .xls (định dạng cũ) chưa đọc được. Hãy lưu lại thành .xlsx hoặc .csv.');
   throw new Error('Chỉ nhận tệp .xlsx hoặc .csv');
 };
 /** Mở hộp chọn tệp; trả về {file, rows}; null nếu hủy */
-BGX.pickFile = (accept) => new Promise((res) => {
+BGX.pickFile = (accept, pick) => new Promise((res) => {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = accept || '.xlsx,.csv'; inp.style.display = 'none'; document.body.appendChild(inp);
   let done = false; const fin = (v) => { if (done) return; done = true; inp.remove(); res(v); };
-  inp.addEventListener('change', async () => { const f = inp.files && inp.files[0]; if (!f) { fin(null); return; } try { fin({ file: f, rows: await BGX.readFile(f) }); } catch (e) { ui.toast(e.message || 'Không đọc được tệp', 'bad', 4500); fin(null); } });
+  inp.addEventListener('change', async () => { const f = inp.files && inp.files[0]; if (!f) { fin(null); return; } try { fin({ file: f, rows: await BGX.readFile(f, pick) }); } catch (e) { ui.toast(e.message || 'Không đọc được tệp', 'bad', 4500); fin(null); } });
   inp.addEventListener('cancel', () => fin(null)); inp.click();
 });
 /** Chọn một tệp đính kèm (≤ 3 MB) → {name, size, type, data: dataURL}; null nếu hủy */
@@ -14428,6 +14441,7 @@ const WM = {
     { g: 'Điều hành', items: [{ s: 'bg-progress', t: 'Tiến độ nhập giá', badge: () => 0 }, { s: 'bg-review', t: 'Kiểm duyệt & công bố', badge: () => (BG.isDay(bgToday()) ? BG.unhandled(bgToday()).length : 0), also: ['bg-edit', 'bg-proxy'] }, { s: 'bg-detail', t: 'Chi tiết báo giá', sub: true }, { s: 'bg-alerts', t: 'Cảnh báo biến động', sub: true }] },
     { g: 'Báo cáo', items: [{ s: 'bg-board-view', t: 'Bảng giá tổng hợp' }, { s: 'bg-region', t: 'Dashboard theo vùng' }, { s: 'bg-changes', t: 'Báo cáo biến động giá' }, { s: 'bg-cost-report', t: 'Giá thành sản xuất' }, { s: 'bg-stats', t: 'Thống kê phiếu báo giá' }] },
     { g: 'Điều tra giá thành', items: [{ s: 'bg-rounds', t: 'Đợt điều tra', also: ['bg-round', 'bg-round-new', 'bg-import'] }, { s: 'bg-review-srv', t: 'Rà soát phiếu' }] },
+    { g: 'Chương trình khuyến nông', items: [{ s: 'pr-tt', t: 'Chương trình thông tin' }, { s: 'pr-dt', t: 'Đào tạo huấn luyện và hợp tác' }] },
     { g: 'Dữ liệu', items: [{ s: 'bg-items', t: 'Mặt hàng' }, { s: 'bg-xalist', t: 'Xã báo giá', also: ['bg-xa-edit', 'bg-fimport-xa'] }] },
     ...(BG.isQtnv() ? [{ g: 'Cấu hình', items: [{ s: 'bg-config', t: 'Kỳ báo giá & giờ khóa', p: { tab: 'ky' } }, { s: 'bg-config', t: 'Nhắc nhập giá', p: { tab: 'nhac' } }, { s: 'bg-config', t: 'Ngưỡng cảnh báo', p: { tab: 'nguong' } }] }] : []),
   ],
@@ -14437,7 +14451,7 @@ const WM = {
   ],
   admin: () => [
     { g: 'Điều hành', items: [{ s: 'bg-admin-home', t: 'Tổng quan hệ thống' }] },
-    { g: 'Phòng ban', items: [{ t: 'Phòng Thông tin Tuyên truyền', head: true }, { s: 'bg-progress', t: 'Tiến độ nhập giá', sub: true }, { s: 'bg-review', t: 'Kiểm duyệt & công bố', sub: true, also: ['bg-edit', 'bg-proxy', 'bg-detail', 'bg-alerts'] }, { s: 'bg-entry', t: 'Nhập báo giá (Cấp Xã)', sub: true }, { s: 'bg-board-view', t: 'Bảng giá, báo cáo', sub: true, also: ['bg-changes', 'bg-region', 'bg-cost-report', 'bg-stats'] }, { s: 'bg-rounds', t: 'Điều tra giá thành', sub: true, also: ['bg-round', 'bg-round-new', 'bg-import', 'bg-review-srv'] }, { t: 'Phòng Trồng trọt', off: true }, { t: 'Phòng Chăn nuôi – Thủy sản', off: true }] },
+    { g: 'Phòng ban', items: [{ t: 'Phòng Thông tin Tuyên truyền', head: true }, { s: 'bg-progress', t: 'Tiến độ nhập giá', sub: true }, { s: 'bg-review', t: 'Kiểm duyệt & công bố', sub: true, also: ['bg-edit', 'bg-proxy', 'bg-detail', 'bg-alerts'] }, { s: 'bg-entry', t: 'Nhập báo giá (Cấp Xã)', sub: true }, { s: 'bg-board-view', t: 'Bảng giá, báo cáo', sub: true, also: ['bg-changes', 'bg-region', 'bg-cost-report', 'bg-stats'] }, { s: 'bg-rounds', t: 'Điều tra giá thành', sub: true, also: ['bg-round', 'bg-round-new', 'bg-import', 'bg-review-srv'] }, { s: 'pr-tt', t: 'Chương trình thông tin', sub: true }, { s: 'pr-dt', t: 'Đào tạo huấn luyện và hợp tác', sub: true }, { t: 'Phòng Trồng trọt', off: true }, { t: 'Phòng Chăn nuôi – Thủy sản', off: true }] },
     { g: 'Quản trị hệ thống', items: [{ s: 'bg-admin-users', t: 'Tài khoản & phân quyền', also: ['bg-admin-user', 'bg-fimport-users'] }, { s: 'bg-xalist', t: 'Xã báo giá', also: ['bg-xa-edit', 'bg-fimport-xa'] }, { s: 'bg-items', t: 'Mặt hàng', also: ['bg-fimport-items'] }, { s: 'bg-config', t: 'Kỳ báo giá & giờ khóa', p: { tab: 'ky' } }, { s: 'bg-config', t: 'Nhắc nhập giá', p: { tab: 'nhac' } }, { s: 'bg-config', t: 'Ngưỡng cảnh báo', p: { tab: 'nguong' } }] },
   ],
 };
@@ -15451,6 +15465,360 @@ Actions['bgad-xsave'] = (el, d) => {
 };
 
 ;
+/* ===== web/56_web_prog.js ===== */
+/* ==========================================================================
+   56_web_prog.js — Bản web · Cấp Tỉnh (Phòng TTTT): Chương trình thông tin · Chương trình đào tạo huấn luyện và hợp tác
+   Nguồn yêu cầu: 2 biểu mẫu báo cáo tuần do Phòng TTTT cung cấp (tệp "Mekong xanh.xlsx", sheet "Chuong trinh TTTT" và "Chuong trinh ĐTTH").
+   Chưa có trong BRD: chỉ dựng đúng các cột của biểu mẫu (quy mô, tiến độ tuần, kinh phí tuần, đánh giá tuần, lũy kế, ghi chú);
+   chưa có hồ sơ từng lớp, học viên, hợp đồng, bước duyệt (đang chờ Phòng TTTT trả lời).
+   Lũy kế = số đầu kỳ theo biểu mẫu + cộng dồn các tuần đã nhập; % kế hoạch tính theo quy mô (hoặc quy mô điều chỉnh).
+   ========================================================================== */
+'use strict';
+
+const PR = {};
+PR.PROG = {
+  tt: { screen: 'pr-tt', title: 'Chương trình thông tin', roman: 'I', note: true },
+  dt: { screen: 'pr-dt', title: 'Chương trình đào tạo huấn luyện và hợp tác', roman: 'II', note: false },
+};
+PR.QD = 'Quyết định 2855/QĐ-UBND ngày 19/6/2026';
+
+/* [id, TT, cấp, tên (đúng như biểu mẫu), quy mô, quy mô điều chỉnh, lũy kế đầu kỳ, kinh phí lũy kế đầu kỳ, tiến độ bằng chữ, ghi chú]. Cấp 0 + quy mô rỗng = dòng nhóm */
+PR.CAT = {
+  tt: [
+    ['tt01', '1', 0, 'Tuyên truyền với Báo và PTTTH An Giang', null, null, null, null, 'Đã ký hợp đồng', ''],
+    ['tt02', '', 1, 'Truyền hình (chuyên mục)', 28, null, 16, null, '', ''],
+    ['tt03', '', 1, 'Câu chuyện kinh tế biển (câu chuyện)', 4, null, 1, null, '', ''],
+    ['tt04', '', 1, 'Video clip phóng sự tổng kết (clip)', 1, null, 0, null, '', ''],
+    ['tt05', '', 1, 'Trang báo điện tử An Giang (số báo)', 28, null, 13, null, '', ''],
+    ['tt06', '2', 0, 'Thông tin trên Báo Nông nghiệp và MT', null, null, null, null, '', ''],
+    ['tt07', '', 1, 'Bài viết trên trang báo điện tử NNMT', 7, null, 5, null, '', ''],
+    ['tt08', '', 1, 'Video clip', 3, null, 0, null, '', ''],
+    ['tt09', '3', 0, 'Bài viết trên Báo điện tử Dân Việt', 4, null, 4, null, '', ''],
+    ['tt10', '4', 0, 'Bản tin số Khuyến nông và thị trường', 12, null, 5, null, '', ''],
+    ['tt11', '5', 0, 'Thu thập thông tin giá cả nông sản (phiếu)', 6552, 3822, 1934, 34582.4, '', 'Giảm 2.730 phiếu sau khi giảm dự toán'],
+    ['tt12', '6', 0, 'Trang Website Khuyến nông (tin, bài/quý)', 510, null, 357, null, '', ''],
+    ['tt13', '7', 0, 'Short video trên kênh Youtube KN (video)', 65, null, 51, 18954, '', ''],
+    ['tt14', '8', 0, 'In tài liệu kỹ thuật (cuốn)', 2000, null, 0, null, 'Đã maket, tiến hành in ấn', ''],
+    ['tt15', '9', 0, 'Dẫn đoàn tham quan Hội thảo, hội nghị... (chuyến)', 5, null, 1, 16500, '', ''],
+    ['tt16', '10', 0, 'Tọa đàm chuyên đề (tọa đàm)', 4, null, 3, 22604, '', ''],
+    ['tt17', '11', 0, 'Tổ chức, tham quan ngày hội thu hoạch (cuộc)', 4, null, 3, null, '', ''],
+    ['tt18', '12', 0, 'Tập huấn phương pháp, kỹ năng phục vụ công tác TTTT (lớp)', 3, null, 3, 19236.4, '', ''],
+    ['tt19', '13', 0, 'Hội thi kỹ năng khuyến nông... (hội thi)', 1, null, 0, null, '', ''],
+  ],
+  dt: [
+    ['dt01', '1', 0, 'Tập huấn nâng cao cho cán bộ/viên chức khuyến nông (lớp)', 7, null, 7, 166430000, '', ''],
+    ['dt02', '2', 0, 'Tham dự Tập huấn ToT do Trung ương, Viện, Trường tổ chức (người)', 30, null, 2, 5008000, '', ''],
+    ['dt03', '3', 0, 'Tập huấn viên chức khuyến nông, Tổ KNCĐ (lớp)', 10, null, 10, 210240000, '', ''],
+    ['dt04', '4', 0, 'Tập huấn nông dân chủ chốt (lớp)', 12, null, 10, 236820000, '', ''],
+    ['dt05', '5', 0, 'Tập huấn theo nhu cầu địa phương (lớp)', 10, null, 10, 30460000, '', ''],
+    ['dt06', '6', 0, 'Học tập, trao đổi kinh nghiệm (cuộc)', 3, null, 3, 154500000, '', ''],
+  ],
+};
+/** Kỳ báo cáo của biểu mẫu khách hàng: Tuần 43 (đến ngày 30/10/2026), số liệu đã có; tuần kế tiếp để trống cho người dùng thử nhập */
+PR.WEEK0 = { week: 43, to: '2026-10-30' };
+
+PR.seed = (db) => {
+  db.prCat = []; db.prRep = [];
+  Object.keys(PR.CAT).forEach((prog) => {
+    PR.CAT[prog].forEach((r, i) => db.prCat.push({ id: r[0], prog, tt: r[1], lvl: r[2], ten: r[3], quyMo: r[4], kh: r[5], lk0: r[6], kp0: r[7], lkText: r[8], ghiChu: r[9], grp: r[4] == null, order: i + 1, log: [] }));
+    db.prRep.push({ id: `${prog}|${PR.WEEK0.week}`, prog, week: PR.WEEK0.week, to: PR.WEEK0.to, st: 'sent', closedAt: null, rows: {}, log: [] });
+    db.prRep.push({ id: `${prog}|${PR.WEEK0.week + 1}`, prog, week: PR.WEEK0.week + 1, to: addDays(PR.WEEK0.to, 7), st: 'draft', rows: {}, log: [] });
+  });
+};
+Seeders.push(PR.seed);
+PR.ensure = () => { if (!DB.all('prCat').length) { PR.seed(App.state.db); saveState(); } };
+
+PR.canEdit = () => ['tinh', 'admin'].includes(Session.level());
+PR.cats = (prog) => DB.where('prCat', (c) => c.prog === prog).sort((a, b) => a.order - b.order);
+PR.reps = (prog) => DB.where('prRep', (r) => r.prog === prog).sort((a, b) => a.week - b.week);
+PR.num = (v) => { const n = typeof v === 'number' ? v : parseNum(v); return n == null || isNaN(n) ? 0 : n; };
+PR.round = (v) => Math.round(v * 100) / 100;
+PR.pct = (v) => String(PR.round(v)).replace('.', ',');
+PR.khOf = (c) => (c.kh != null ? c.kh : c.quyMo);
+PR.fmtTo = (iso) => fmt.date(iso);
+PR.wlabel = (r) => `Tuần ${r.week} (đến ngày ${PR.fmtTo(r.to)})`;
+
+/** Lũy kế sau báo cáo rep: số đầu kỳ + cộng dồn các tuần đến rep; vals (nếu có) là số đang gõ trên màn hình của chính rep đó */
+PR.calc = (prog, rep, vals) => {
+  const reps = PR.reps(prog).filter((r) => r.week <= rep.week); const out = {};
+  PR.cats(prog).filter((c) => !c.grp).forEach((c) => {
+    let lk = c.lk0 || 0; let kp = c.kp0 || 0;
+    reps.forEach((r) => { const o = r.id === rep.id && vals ? { t: vals['t_' + c.id], k: vals['k_' + c.id] } : (r.rows[c.id] || {}); lk += PR.num(o.t); kp += PR.num(o.k); });
+    const kh = PR.khOf(c); out[c.id] = { lk: PR.round(lk), kp: PR.round(kp), kh, pct: kh ? (lk / kh) * 100 : null };
+  });
+  return out;
+};
+PR.totalKp = (calc) => PR.round(Object.values(calc).reduce((t, x) => t + x.kp, 0));
+PR.lkCell = (c, x) => {
+  const txt = c.lkText ? `<div class="small muted">${esc(c.lkText)}</div>` : '';
+  if (c.grp) return txt;
+  if (c.lkText && !x.lk) return txt;
+  return `<b id="pr-lk-${c.id}">${fmt.num(x.lk)}</b>${x.kh != null ? ` / ${fmt.num(x.kh)}` : ''}<div class="small" id="pr-pct-${c.id}" style="color:${x.pct != null && x.pct >= 100 ? 'var(--g700)' : 'var(--muted)'}">${x.pct != null ? `đạt ${PR.pct(x.pct)}% KH` : ''}</div>${txt}`;
+};
+
+PR.state = (prog) => { const S = App.tmp.prF || (App.tmp.prF = {}); const reps = PR.reps(prog); const f = S[prog] || (S[prog] = {}); if (!reps.find((r) => r.week === f.week)) f.week = reps.length ? reps[reps.length - 1].week : null; return f; };
+
+PR.render = (prog) => {
+  PR.ensure(); const P = PR.PROG[prog]; const reps = PR.reps(prog); const S = PR.state(prog);
+  if (!reps.length) return ui.screen({ header: ui.rootHeader({ title: P.title }), body: ui.empty('Chưa có dữ liệu chương trình. Vui lòng tải lại trang sau ít phút.', 'file') });
+  const rep = reps.find((r) => r.week === S.week); const edit = PR.canEdit() && rep && rep.st === 'draft'; const last = reps[reps.length - 1];
+  const cats = PR.cats(prog); const key = `pr|${prog}|${rep.week}`;
+  if (edit && !Form.is(key)) { const v = {}; cats.filter((c) => !c.grp).forEach((c) => { const o = rep.rows[c.id] || {}; v['t_' + c.id] = o.t == null ? '' : o.t; v['k_' + c.id] = o.k == null ? '' : o.k; v['d_' + c.id] = o.d || ''; }); Form.start(key, v); }
+  const calc = PR.calc(prog, rep, edit ? Form.v : null);
+  const leaves = cats.filter((c) => !c.grp); const done = leaves.filter((c) => calc[c.id].pct != null && calc[c.id].pct >= 100).length;
+  const kp = W.kpis([W.kpi('Hạng mục theo dõi', leaves.length, 'theo biểu mẫu của Phòng TTTT'),
+    W.kpi('Đạt 100% kế hoạch', `${done} / ${leaves.length}`, 'tính theo lũy kế', done === leaves.length ? 'ok' : ''),
+    prog === 'dt' ? W.kpi('Kinh phí lũy kế', `<span id="pr-tot">${fmt.num(PR.totalKp(calc))}</span>`, 'đồng') : W.kpi('Kỳ báo cáo', `Tuần ${rep.week}`, `đến ngày ${PR.fmtTo(rep.to)}`)], 3);
+  const filt = W.filter([W.sel('prweek', 'Kỳ báo cáo', reps.map((r) => ({ value: r.week, label: PR.wlabel(r) })), rep.week),
+    `<div class="fld wfix"><label>Trạng thái</label><span class="chip ${rep.st === 'sent' ? 'dark' : 'warn'} wchip" style="font-weight:700">${rep.st === 'sent' ? 'Đã chốt' : 'Bản nháp'}</span></div>`]);
+  const th = (t, o = '') => `<th ${o}>${t}</th>`;
+  const head = `<thead><tr>${th('TT', 'rowspan="2" style="width:44px"')}${th(`TÊN CHƯƠNG TRÌNH KHUYẾN NÔNG<br><span class="small" style="font-weight:500">(theo ${esc(PR.QD)})</span>`, 'rowspan="2" style="min-width:270px"')}${th('QUY MÔ', 'rowspan="2" class="r" style="min-width:118px"')}
+    ${th(`TIẾN ĐỘ THỰC HIỆN TUẦN ${rep.week}<br><span class="small" style="font-weight:500">(đến ngày ${esc(PR.fmtTo(rep.to))})</span>`, 'colspan="2" class="c"')}${th(`ĐÁNH GIÁ TUẦN ${rep.week}<br><span class="small" style="font-weight:500">(khó khăn, vướng mắc, đề xuất, kế hoạch trong thời gian tới...)</span>`, 'rowspan="2" style="min-width:200px"')}${th('LŨY KẾ', 'colspan="2" class="c"')}${P.note ? th('Ghi chú', 'rowspan="2" style="min-width:150px"') : ''}</tr>
+    <tr>${th('Tiến độ thực hiện', 'class="r" style="width:130px"')}${th('Kinh phí thực hiện (đồng)', 'class="r" style="width:150px"')}${th('Tiến độ thực hiện', 'class="r" style="width:150px"')}${th('Kinh phí thực hiện (đồng)', 'class="r" style="width:150px"')}</tr></thead>`;
+  const ncol = P.note ? 9 : 8; const rows = [`<tr class="grp"><td>${P.roman}</td><td colspan="${ncol - 1}">${esc(P.title)}</td></tr>`];
+  cats.forEach((c) => {
+    const x = calc[c.id] || {}; const o = rep.rows[c.id] || {}; const pad = c.lvl ? 'padding-left:26px' : '';
+    if (c.grp) { rows.push(`<tr class="prg"><td>${esc(c.tt)}</td><td colspan="${ncol - 4}"><b>${esc(c.ten)}</b>${PR.canEdit() ? ` <button class="ibtn" data-act="pr-add" data-prog="${prog}" data-parent="${c.id}" aria-label="Thêm mục con" title="Thêm mục con">${icon('plus', 16)}</button>${c.custom && PR.unused(c) && !PR.hasKids(c) ? `<button class="ibtn" data-act="pr-del" data-id="${c.id}" aria-label="Xóa mục" title="Xóa mục nhóm (chưa có mục con)">${icon('trash', 16)}</button>` : ''}` : ''}</td><td>${c.lkText ? `<span class="small muted">${esc(c.lkText)}</span>` : ''}</td><td></td>${P.note ? '<td></td>' : ''}</tr>`); return; }
+    const quy = `<div class="row" style="gap:6px;justify-content:flex-end;align-items:center">${PR.canEdit() && !c.lvl && PR.unused(c) ? `<button class="ibtn" data-act="pr-add" data-prog="${prog}" data-parent="${c.id}" aria-label="Thêm mục con" title="Thêm mục con">${icon('plus', 16)}</button>` : ''}${PR.canEdit() ? `<button class="ibtn" data-act="pr-adj" data-id="${c.id}" aria-label="Điều chỉnh kế hoạch" title="Điều chỉnh kế hoạch">${icon('edit', 16)}</button>` : ''}${PR.canEdit() && c.custom && PR.unused(c) && !PR.hasKids(c) ? `<button class="ibtn" data-act="pr-del" data-id="${c.id}" aria-label="Xóa hạng mục" title="Xóa hạng mục (chưa có số liệu)">${icon('trash', 16)}</button>` : ''}<span><b>${fmt.num(c.quyMo)}</b>${c.kh != null ? `<div class="small" style="color:var(--warn-fg)">KH điều chỉnh: ${fmt.num(c.kh)}</div>` : ''}</span></div>`;
+    const tCell = edit ? ui.field({ name: 't_' + c.id, type: 'num', dec: 0, placeholder: '0' }) : (o.t != null && o.t !== '' ? fmt.num(o.t) : '<span class="muted">—</span>');
+    const kCell = edit ? ui.field({ name: 'k_' + c.id, type: 'num', dec: prog === 'tt' ? 1 : 0, placeholder: '0' }) : (o.k != null && o.k !== '' ? fmt.num(o.k) : '<span class="muted">—</span>');
+    const dCell = edit ? ui.field({ name: 'd_' + c.id, type: 'text', max: 300, placeholder: 'Khó khăn, vướng mắc, đề xuất...' }) : (o.d ? esc(o.d) : '<span class="muted">—</span>');
+    rows.push(`<tr><td>${esc(c.tt)}</td><td style="${pad}">${esc(c.ten)}</td><td class="r">${quy}</td><td class="r">${tCell}</td><td class="r">${kCell}</td><td>${dCell}</td><td class="r">${PR.lkCell(c, x)}</td><td class="r"><span id="pr-lkp-${c.id}">${x.kp ? fmt.num(x.kp) : '<span class="muted">—</span>'}</span></td>${P.note ? `<td class="small">${esc(c.ghiChu || '')}</td>` : ''}</tr>`);
+  });
+  if (PR.canEdit()) rows.push(`<tr class="pradd"><td colspan="${ncol}"><button class="btn sm outline" data-act="pr-add" data-prog="${prog}" style="min-width:0">${icon('plus', 16)}Thêm hạng mục</button></td></tr>`);
+  const table = `<div class="wt-wrap prt"><table class="wt">${head}<tbody>${rows.join('')}</tbody></table></div>`;
+  const unit = prog === 'tt' ? ui.note('Kinh phí giữ nguyên số liệu trong biểu mẫu Phòng TTTT cung cấp; đơn vị tính (đồng hay nghìn đồng) đang chờ Phòng xác nhận.', 'grey') : '';
+  const state = rep.st === 'sent' ? ui.note(`Báo cáo ${PR.wlabel(rep)} đã chốt, không sửa được.${rep === last ? ' Tạo báo cáo tuần tiếp theo để nhập số liệu mới; lũy kế được cộng dồn từ báo cáo này.' : ''}`, 'info') : ui.note('Nhập tiến độ và kinh phí của tuần; lũy kế và tỷ lệ đạt kế hoạch tự cập nhật. Bấm Lưu nháp để giữ lại, Chốt báo cáo khi hoàn thành tuần.', 'info');
+  const foot = !PR.canEdit() ? '' : edit ? `<div class="actionbar"><button class="btn outline" data-act="pr-save" data-prog="${prog}">${icon('save', 16)}Lưu nháp</button><button class="btn" data-act="pr-close" data-prog="${prog}">${icon('check', 16)}Chốt báo cáo tuần ${rep.week}</button></div>`
+    : rep === last ? `<div class="actionbar"><button class="btn" data-act="pr-new" data-prog="${prog}">${icon('plus', 16)}Tạo báo cáo tuần ${rep.week + 1}</button></div>` : '';
+  return ui.screen({ header: ui.rootHeader({ title: P.title, sub: `<span class="chip ok sm" style="font-weight:700">${esc(PR.wlabel(rep))}</span>`, actions: `${edit ? `<button class="btn sm outline" data-act="pr-import" data-prog="${prog}" style="min-width:0">${icon('upload', 16)}Nhập từ Excel</button>` : ''}<button class="btn sm outline" data-act="bgf" data-k="prog_${prog}" style="min-width:0">${icon('excel', 16)}Xuất Excel</button>` }), body: `${kp}${filt}${state}${unit}${table}`, footer: foot });
+};
+
+/** Cập nhật lũy kế, tỷ lệ và tổng kinh phí ngay khi gõ (không vẽ lại màn hình để giữ con trỏ) */
+PR.paint = (prog) => {
+  const rep = PR.reps(prog).find((r) => r.week === PR.state(prog).week); if (!rep || rep.st !== 'draft') return;
+  const calc = PR.calc(prog, rep, Form.v); const q = (id) => App.el.querySelector('#' + id);
+  PR.cats(prog).filter((c) => !c.grp).forEach((c) => {
+    const x = calc[c.id]; const a = q('pr-lk-' + c.id); const b = q('pr-pct-' + c.id); const k = q('pr-lkp-' + c.id);
+    if (a) a.textContent = fmt.num(x.lk); if (b) { b.textContent = x.pct != null ? `đạt ${PR.pct(x.pct)}% KH` : ''; b.style.color = x.pct != null && x.pct >= 100 ? 'var(--g700)' : 'var(--muted)'; } if (k) k.innerHTML = x.kp ? fmt.num(x.kp) : '<span class="muted">—</span>';
+  });
+  const t = q('pr-tot'); if (t) t.textContent = fmt.num(PR.totalKp(calc));
+};
+
+['tt', 'dt'].forEach((prog) => {
+  Screens[PR.PROG[prog].screen] = {
+    tab: 'pr',
+    render() { return PR.render(prog); },
+    onInput(el, p, name, val) {
+      if (name === 'prweek') { PR.state(prog).week = Number(val); refresh(); return; }
+      if ((name === 'parent' || name === 'kind') && PR.add) { ui.updateSheet(PR.add.sid, { body: PR.add.body() }); return; }
+      if (/^[tk]_/.test(name)) PR.paint(prog);
+    },
+  };
+});
+
+PR.collect = (prog, rep) => {
+  const rows = {}; PR.cats(prog).filter((c) => !c.grp).forEach((c) => {
+    const t = Form.v['t_' + c.id]; const k = Form.v['k_' + c.id]; const d = String(Form.v['d_' + c.id] || '').trim();
+    if ((t === '' || t == null) && (k === '' || k == null) && !d) return;
+    rows[c.id] = { t: t === '' || t == null ? null : PR.num(t), k: k === '' || k == null ? null : PR.num(k), d };
+  }); return rows;
+};
+PR.bad = (prog) => PR.cats(prog).filter((c) => !c.grp).filter((c) => ['t_', 'k_'].some((p) => { const v = Form.v[p + c.id]; return v !== '' && v != null && (isNaN(v) || Number(v) < 0); })).map((c) => c.ten);
+PR.current = (prog) => PR.reps(prog).find((r) => r.week === PR.state(prog).week);
+
+Object.assign(Actions, {
+  'pr-save'(el, d) {
+    const rep = PR.current(d.prog); if (!rep || rep.st !== 'draft' || !PR.canEdit()) return;
+    const bad = PR.bad(d.prog); if (bad.length) { ui.toast('Số liệu không hợp lệ ở: ' + bad[0], 'bad'); return; }
+    rep.rows = PR.collect(d.prog, rep); if (App.tmp.form) App.tmp.form.dirty = false; DB.log(rep, `Lưu nháp báo cáo ${PR.wlabel(rep)}`); ui.toast('Đã lưu nháp', 'ok'); refresh();
+  },
+  'pr-close'(el, d) {
+    const rep = PR.current(d.prog); if (!rep || rep.st !== 'draft' || !PR.canEdit()) return;
+    const bad = PR.bad(d.prog); if (bad.length) { ui.toast('Số liệu không hợp lệ ở: ' + bad[0], 'bad'); return; }
+    ui.confirm(`Chốt báo cáo tuần ${rep.week}?`, 'Sau khi chốt không sửa được số liệu tuần này. Lũy kế của tuần sau được cộng dồn từ báo cáo này.', () => {
+      rep.rows = PR.collect(d.prog, rep); rep.st = 'sent'; rep.closedAt = nowISO(); DB.log(rep, `Chốt báo cáo ${PR.wlabel(rep)}`); ui.toast(`Đã chốt báo cáo tuần ${rep.week}`, 'ok'); refresh();
+    }, { okLabel: 'Chốt báo cáo' });
+  },
+  'pr-new'(el, d) {
+    if (!PR.canEdit()) return; const last = PR.reps(d.prog).slice(-1)[0]; if (!last || last.st !== 'sent') return;
+    const r = DB.insert('prRep', { id: `${d.prog}|${last.week + 1}`, prog: d.prog, week: last.week + 1, to: addDays(last.to, 7), st: 'draft', rows: {}, log: [] }); DB.log(r, `Tạo báo cáo ${PR.wlabel(r)}`);
+    PR.state(d.prog).week = r.week; ui.toast(`Đã tạo báo cáo tuần ${r.week}`, 'ok'); refresh();
+  },
+  'pr-adj'(el, d) {
+    const c = DB.get('prCat', d.id); if (!c || !PR.canEdit()) return;
+    PR.flush(c.prog); Form.start('pr-adj', { kh: c.kh != null ? c.kh : '', note: c.ghiChu || '' });
+    const f = [{ name: 'kh', label: `Quy mô điều chỉnh (quy mô theo QĐ: ${fmt.num(c.quyMo)})`, type: 'num', dec: 0, help: 'Để trống để dùng lại quy mô theo Quyết định. Tỷ lệ đạt kế hoạch tính theo số này.' }].concat(PR.PROG[c.prog].note ? [{ name: 'note', label: 'Ghi chú (lý do điều chỉnh)', type: 'textarea', rows: 2 }] : []);
+    const id = ui.sheet({ title: 'Điều chỉnh kế hoạch', body: `<div class="small muted" style="margin-bottom:10px">${esc(c.ten)}</div>${ui.fields(f)}`, actions: [{ label: 'Hủy', cls: 'ghost' }, { label: 'Lưu', onClick: () => {
+      const v = Form.v.kh; if (v !== '' && v != null && (isNaN(v) || Number(v) <= 0)) { Form.err.kh = 'Quy mô điều chỉnh phải lớn hơn 0'; ui.updateSheet(id, { body: `<div class="small muted" style="margin-bottom:10px">${esc(c.ten)}</div>${ui.fields(f)}` }); return false; }
+      const old = c.kh != null ? c.kh : c.quyMo; c.kh = v === '' || v == null ? null : Number(v); if (PR.PROG[c.prog].note) c.ghiChu = String(Form.v.note || '').trim();
+      DB.log(c, 'Điều chỉnh kế hoạch', [{ label: 'Quy mô kế hoạch', old: fmt.num(old), new: fmt.num(c.kh != null ? c.kh : c.quyMo) }]); ui.toast('Đã lưu điều chỉnh kế hoạch', 'ok'); refresh(); return true; } }] });
+  },
+});
+
+/* ---------------- Xuất Excel: giữ thứ tự cột của biểu mẫu (tiêu đề 2 tầng gộp thành tên cột) ---------------- */
+['tt', 'dt'].forEach((prog) => {
+  BGX.providers['prog_' + prog] = (d) => {
+    const blank = !!(d && d.blank);
+    PR.ensure(); const P = PR.PROG[prog]; const rep = PR.current(prog); const cats = PR.cats(prog); const calc = PR.calc(prog, rep); const w = rep.week;
+    const cols = [BGXc('TT', 6), BGXc('Tên chương trình khuyến nông', 52), BGXc('Quy mô', 12, 'i'), BGXc(`Tiến độ thực hiện tuần ${w}`, 16, 'i'), BGXc(`Kinh phí thực hiện tuần ${w} (đồng)`, 20, 'd'), BGXc(`Đánh giá tuần ${w}`, 40), BGXc('Lũy kế: tiến độ thực hiện', 22), BGXc('Lũy kế: kinh phí thực hiện (đồng)', 22, 'd')].concat(P.note ? [BGXc('Ghi chú', 34)] : []);
+    const rows = [[P.roman, P.title].concat(new Array(cols.length - 2).fill(''))];
+    cats.forEach((c) => {
+      const x = calc[c.id]; const o = rep.rows[c.id] || {};
+      if (c.grp) { rows.push([c.tt, c.ten, '', '', '', '', c.lkText || '', ''].concat(P.note ? [''] : [])); return; }
+      const lk = c.lkText && !x.lk ? c.lkText : `${fmt.num(x.lk)}${x.kh != null ? '/' + fmt.num(x.kh) : ''}${x.pct != null ? `, đạt ${PR.pct(x.pct)}% KH` : ''}`;
+      rows.push([c.tt, c.ten, c.quyMo, blank || o.t == null ? '' : o.t, blank || o.k == null ? '' : o.k, blank ? '' : o.d || '', lk, x.kp || ''].concat(P.note ? [c.ghiChu || ''] : []));
+    });
+    return { file: `${blank ? 'Mau_' : ''}${prog === 'tt' ? 'ChuongTrinhThongTin' : 'ChuongTrinhDaoTaoHuanLuyen'}_Tuan${w}.xlsx`, sheets: [{ name: P.title, head: [`${P.title.toUpperCase()} · Tuần ${w} (đến ngày ${PR.fmtTo(rep.to)})`, `Theo ${PR.QD}`], cols, rows }] };
+  };
+});
+
+[['Chương trình thông tin', 'pr-tt'], ['Chương trình đào tạo huấn luyện và hợp tác', 'pr-dt']].forEach(([t, s]) => Demo.mapExtra.push({ group: 'Cấp Tỉnh · Chương trình khuyến nông', t, fn: '', go: ['u_binh', 'tttt', s, {}] }));
+
+/* ---------------- Nhập từ Excel: hộp pop-up ngay trên màn hình báo cáo (tải mẫu → chọn tệp → kiểm tra từng dòng → ghi nhận → tải dòng lỗi) ----------------
+   Đọc các cột Tiến độ thực hiện, Kinh phí thực hiện, Đánh giá của tuần đang chọn; nhận cả tệp xuất từ hệ thống lẫn biểu mẫu gốc của Phòng TTTT (tiêu đề 2 tầng).
+   Ghép dòng theo tên hạng mục; lũy kế do hệ thống tự tính nên cột Lũy kế trong tệp bị bỏ qua. Chỉ ghi vào báo cáo tuần ở trạng thái Bản nháp. */
+PR.imp = null;
+PR.impRun = (prog, rows) => {
+  const rep = PR.reps(prog).find((r) => r.week === (PR.imp || {}).week);
+  if (!rep || rep.st !== 'draft') return { fatal: 'Chỉ nhập được vào báo cáo tuần đang ở trạng thái Bản nháp. Quay lại, chọn kỳ báo cáo là bản nháp (hoặc tạo báo cáo tuần mới) rồi nhập lại.' };
+  const N = BGX.normH; let nameC = -1; let tC = -1; let kC = -1; let dC = -1; let hdr = -1;
+  rows.slice(0, 10).forEach((r, i) => r.forEach((v, j) => {
+    const h = N(v); if (!h) return;
+    if (h.startsWith('ten chuong trinh') && nameC < 0) { nameC = j; hdr = Math.max(hdr, i); }
+    else if (h.startsWith('tien do thuc hien') && (tC < 0 || j < tC)) { tC = j; hdr = Math.max(hdr, i); }
+    else if (h.startsWith('kinh phi thuc hien') && (kC < 0 || j < kC)) { kC = j; hdr = Math.max(hdr, i); }
+    else if (h.startsWith('danh gia') && dC < 0) { dC = j; hdr = Math.max(hdr, i); }
+  }));
+  if (nameC < 0 || (tC < 0 && kC < 0)) return { fatal: 'Không nhận ra bố cục tệp. Cần cột "Tên chương trình khuyến nông" và các cột "Tiến độ thực hiện", "Kinh phí thực hiện" của tuần. Tải tệp mẫu để dùng đúng bố cục.' };
+  const byName = new Map(PR.cats(prog).map((c) => [N(c.ten), c])); const seen = new Set(); const lines = [];
+  const num = (v, label, errs) => {
+    if (v === '' || v == null) return null; const s = String(v).trim(); const x = /^-?\d+(\.\d{1,2})?$/.test(s) ? Number(s) : parseNum(s);
+    if (x == null || isNaN(x)) { errs.push(label + ' không phải số'); return null; } if (x < 0) { errs.push(label + ' không được âm'); return null; } return x;
+  };
+  rows.slice(hdr + 1).forEach((r, i) => {
+    const n = hdr + i + 2; const name = String(r[nameC] == null ? '' : r[nameC]).trim(); if (!name) return;
+    const cells = [tC, kC, dC].map((j) => (j >= 0 ? r[j] : '')); if (cells.every((v) => v === '' || v == null)) return;
+    const c = byName.get(N(name)); const fail = (msg) => lines.push({ k: 'err', n, title: name, msg, raw: r });
+    if (!c) return fail('không có trong danh mục hạng mục của chương trình này');
+    if (c.grp) return fail('dòng nhóm, nhập số liệu ở các dòng con');
+    if (seen.has(c.id)) return fail('trùng với một dòng phía trên');
+    const errs = []; const t = tC >= 0 ? num(r[tC], 'tiến độ', errs) : null; const k = kC >= 0 ? num(r[kC], 'kinh phí', errs) : null; const d = dC >= 0 ? String(r[dC] == null ? '' : r[dC]).trim() : '';
+    if (errs.length) return fail(errs.join('; '));
+    seen.add(c.id); const old = rep.rows[c.id] || {}; const over = (t != null && old.t != null && old.t !== t) || (k != null && old.k != null && old.k !== k);
+    lines.push({ k: over ? 'warn' : 'ok', n, title: c.ten, msg: over ? 'ghi đè số đã nhập trước đó' : 'Hợp lệ', data: { id: c.id, t, k, d }, raw: r });
+  });
+  return { lines, ok: lines.filter((l) => l.k === 'ok'), warn: lines.filter((l) => l.k === 'warn'), err: lines.filter((l) => l.k === 'err'), head: rows[hdr] };
+};
+PR.IMPFILE = { tt: 'ChuongTrinhThongTin', dt: 'ChuongTrinhDaoTaoHuanLuyen' };
+PR.impNote = 'Tệp mẫu là biểu mẫu của chương trình này (Phòng TTTT) đã xóa số liệu. Mỗi dòng là một hạng mục, ghép theo tên. Hệ thống đọc các cột Tiến độ thực hiện, Kinh phí thực hiện và Đánh giá của tuần đang chọn; lũy kế tự tính nên cột Lũy kế trong tệp được bỏ qua. Số liệu vào bản nháp, chưa chốt; ô để trống trong tệp giữ nguyên số đã nhập.';
+PR.impBody = () => {
+  const S = PR.imp; if (!S) return ''; const r = S.res; const rep = PR.reps(S.prog).find((x) => x.week === S.week);
+  let h = `${ui.note(esc(PR.impNote), 'info')}<div class="row" style="gap:8px;margin:10px 0"><button class="btn outline grow" data-act="pr-imp-tmpl">${icon('excel', 18)}Tải tệp mẫu</button><button class="btn grow" data-act="pr-imp-pick">${icon('upload', 18)}${r ? 'Chọn tệp khác' : 'Chọn tệp'}</button></div>`;
+  h += `<div class="small muted" style="margin-bottom:6px">Nhập vào: <b>${esc(rep ? PR.wlabel(rep) : '')}</b></div>`;
+  if (r && r.fatal) return h + ui.note(esc(r.fatal), 'bad');
+  if (!r) return h + ui.empty('Chưa chọn tệp. Tải tệp mẫu, điền số liệu rồi chọn tệp để kiểm tra trước khi ghi nhận.', 'file');
+  h += `<div class="small muted" style="margin:4px 0 8px">Tệp: <b>${esc(S.fname)}</b> · ${r.lines.length} dòng có số liệu</div><div class="kpis" style="grid-template-columns:repeat(3,1fr)">${ui.kpi('Hợp lệ', r.ok.length)}${ui.kpi('Cảnh báo', r.warn.length)}${ui.kpi('Lỗi', `<span style="color:${r.err.length ? 'var(--bad-fg)' : ''}">${r.err.length}</span>`)}</div>`;
+  h += `<div style="max-height:300px;overflow:auto;margin-top:8px">${r.lines.map((l) => `<div class="rowi static" style="${l.k === 'err' ? 'background:#FFF7F6' : l.k === 'warn' ? 'background:#FFFBEC' : ''}"><span class="grow"><div class="t">Dòng ${l.n}: ${esc(l.title)}</div><div class="s">${esc(l.msg)}</div></span><span class="end">${ui.chip(l.k === 'err' ? 'Lỗi' : l.k === 'warn' ? 'Cảnh báo' : 'Hợp lệ', l.k === 'err' ? 'bad' : l.k === 'warn' ? 'warn' : 'ok', { sm: 1 })}</span></div>`).join('')}</div>`;
+  if (r.err.length) h += `<button class="btn outline sm" style="margin-top:8px" data-act="pr-imp-errs">${icon('excel', 16)}Tải danh sách dòng lỗi</button>`;
+  return h + ui.note('Chỉ ghi nhận dòng hợp lệ và dòng cảnh báo; dòng lỗi không làm hỏng cả lần nhập. Sửa dòng lỗi rồi nhập lại tệp đã tải về.', 'grey');
+};
+PR.impActions = () => {
+  const S = PR.imp; const r = S && S.res; const good = r && !r.fatal ? r.ok.concat(r.warn) : [];
+  const acts = [{ label: 'Đóng', cls: 'ghost' }];
+  if (good.length) acts.push({ label: `Ghi nhận ${good.length} dòng`, ic: 'check', onClick: () => PR.impCommit() });
+  return acts;
+};
+PR.impCommit = () => {
+  const S = PR.imp; if (!S || !S.res || S.res.fatal) return true; const rep = PR.reps(S.prog).find((x) => x.week === S.week); if (!rep || rep.st !== 'draft') { ui.toast('Báo cáo tuần này không còn ở trạng thái Bản nháp', 'bad'); return true; }
+  const good = S.res.ok.concat(S.res.warn).sort((a, b) => a.n - b.n); const cats = PR.cats(S.prog); let n = 0;
+  good.forEach((l) => { const d = l.data; const o = rep.rows[d.id] || (rep.rows[d.id] = { t: null, k: null, d: '' }); if (d.t != null) o.t = d.t; if (d.k != null) o.k = d.k; if (d.d) o.d = d.d; n++; });
+  App.tmp.form = null; DB.log(rep, `Nhập từ Excel ${n} hạng mục (tệp ${S.fname})`); ui.toast(`Đã ghi nhận ${n} dòng · ${S.res.err.length} dòng lỗi chưa nhập`, 'ok', 4200); refresh(); return true;
+};
+Actions['pr-import'] = (el, d) => {
+  const rep = PR.current(d.prog); if (!rep || rep.st !== 'draft' || !PR.canEdit()) return;
+  if (Form.is(`pr|${d.prog}|${rep.week}`)) { const bad = PR.bad(d.prog); if (bad.length) { ui.toast('Số liệu đang nhập không hợp lệ ở: ' + bad[0], 'bad'); return; } rep.rows = PR.collect(d.prog, rep); saveState(); }
+  PR.imp = { prog: d.prog, week: rep.week, res: null, fname: '', sid: null };
+  PR.imp.sid = ui.sheet({ title: `Nhập ${PR.PROG[d.prog].title.toLowerCase()} từ Excel`, body: PR.impBody(), actions: PR.impActions(), onClose: () => { PR.imp = null; } });
+};
+Actions['pr-imp-tmpl'] = async () => { const S = PR.imp; if (!S) return; BGX.save(PR.TMPL[S.prog].name, await PR.tmplWithCustom(S.prog)); };
+Actions['pr-imp-pick'] = async () => {
+  const S = PR.imp; if (!S) return; const res = await BGX.pickFile('.xlsx,.csv', (nm) => BGX.normH(nm).includes(S.prog === 'tt' ? 'tttt' : 'dtth')); if (!res || PR.imp !== S) return;
+  if (res.rows.length < 2) { ui.toast('Tệp không có dòng dữ liệu nào (cần dòng tên cột rồi đến các dòng hạng mục)', 'bad', 4200); return; }
+  S.fname = res.file.name; S.res = PR.impRun(S.prog, res.rows); ui.updateSheet(S.sid, { body: PR.impBody(), actions: PR.impActions() });
+};
+Actions['pr-imp-errs'] = () => {
+  const S = PR.imp; if (!S || !S.res || !S.res.err || !S.res.err.length) return; const head = S.res.head || [];
+  BGX.saveXlsx('DanhSachLoi_' + PR.IMPFILE[S.prog] + '.xlsx', [{ name: 'Dòng lỗi', cols: [{ h: 'Dòng trong tệp gốc', w: 12 }, { h: 'Lý do lỗi', w: 44 }].concat(head.map((h) => ({ h: String(h), w: 18 }))), rows: S.res.err.map((l) => [l.n, l.msg].concat(l.raw)) }]);
+};
+
+/* ---------------- Thêm / xóa hạng mục: số hạng mục không cố định theo Quyết định (có thể nhiều hơn 13 ở chương trình thông tin, hơn 6 ở chương trình đào tạo) ---------------- */
+PR.nextTT = (prog) => { const n = PR.cats(prog).filter((c) => c.lvl === 0 && /^\d+$/.test(c.tt)).map((c) => Number(c.tt)); return String((n.length ? Math.max(...n) : 0) + 1); };
+PR.unused = (c) => !(c.lk0 || c.kp0) && !PR.reps(c.prog).some((r) => { const o = r.rows[c.id]; return o && ((o.t != null && o.t !== '') || (o.k != null && o.k !== '') || o.d); });
+/** Lưu nháp số đang gõ trước khi mở hộp thoại (hộp thoại dùng chung vùng nhập liệu của màn hình) */
+PR.flush = (prog) => { const rep = PR.current(prog); if (rep && rep.st === 'draft' && Form.is(`pr|${prog}|${rep.week}`) && !PR.bad(prog).length) { rep.rows = PR.collect(prog, rep); saveState(); } };
+PR.hasKids = (c) => { const cats = PR.cats(c.prog); const i = cats.findIndex((x) => x.id === c.id); return i >= 0 && !c.lvl && !!cats[i + 1] && cats[i + 1].lvl === 1; };
+PR.lastChildIdx = (cats, i) => { let j = i; while (j + 1 < cats.length && cats[j + 1].lvl === 1) j++; return j; };
+/** Hộp Thêm hạng mục: thêm mục chính (TT mới), mục nhóm (gồm các mục con) hoặc mục con của một mục. Mục chính chưa có số liệu được phép trở thành mục nhóm khi thêm mục con. */
+PR.addFields = (prog) => {
+  const parents = PR.cats(prog).filter((c) => !c.lvl && (c.grp || PR.unused(c)));
+  const pid = Form.v.parent || ''; const isGrp = !pid && Form.v.kind === 'grp';
+  const f = [{ name: 'parent', label: 'Thuộc mục', type: 'select', placeholder: false, options: [{ value: '', label: `Mục chính (TT ${PR.nextTT(prog)})` }].concat(parents.map((c) => ({ value: c.id, label: `${c.tt}. ${c.ten}` }))) }];
+  if (!pid) f.push({ name: 'kind', label: 'Loại mục', type: 'select', placeholder: false, options: [{ value: 'item', label: 'Hạng mục có số liệu' }, { value: 'grp', label: 'Mục nhóm (gồm các mục con, không nhập số riêng)' }] });
+  f.push({ name: 'ten', label: isGrp ? 'Tên mục nhóm' : 'Tên hạng mục', type: 'text', required: true, max: 200 });
+  if (!isGrp) f.push({ name: 'dvt', label: 'Đơn vị tính', type: 'text', max: 30, help: 'Ví dụ: lớp, người, cuộc. Ghi trong ngoặc sau tên, giống các hạng mục sẵn có.' }, { name: 'quyMo', label: 'Quy mô (kế hoạch)', type: 'num', dec: 0, required: true });
+  return f;
+};
+Actions['pr-add'] = (el, d) => {
+  if (!PR.canEdit()) return; const prog = d.prog; PR.flush(prog); Form.start('pr-add', { parent: d.parent || '', kind: 'item', ten: '', dvt: '', quyMo: '' });
+  const body = () => { const pc = Form.v.parent ? DB.get('prCat', Form.v.parent) : null; const conv = pc && !pc.grp ? ui.note(`"${esc(pc.ten)}" chưa có số liệu nên sẽ thành mục nhóm: quy mô và số liệu nhập ở các mục con.`, 'warn') : '';
+    return `<div class="small muted" style="margin-bottom:10px">${esc(PR.PROG[prog].title)}</div>${ui.fields(PR.addFields(prog))}${conv}`; };
+  const sid = ui.sheet({ title: 'Thêm hạng mục', body: body(), onClose: () => { PR.add = null; }, actions: [{ label: 'Hủy', cls: 'ghost' }, { label: 'Thêm', onClick: () => {
+    const f = PR.addFields(prog); const pid = Form.v.parent || ''; const isGrp = !pid && Form.v.kind === 'grp';
+    const ok = Form.validate(f, { quyMo: (v) => (!isGrp && v != null && v !== '' && (isNaN(v) || Number(v) <= 0) ? 'Quy mô phải lớn hơn 0' : '') });
+    const ten = String(Form.v.ten || '').trim(); const dvt = isGrp ? '' : String(Form.v.dvt || '').trim(); const full = dvt ? `${ten} (${dvt})` : ten;
+    if (ten && PR.cats(prog).some((c) => BGX.normH(c.ten) === BGX.normH(full))) Form.err.ten = 'Mục này đã có trong chương trình';
+    if (!ok || Form.err.ten) { ui.updateSheet(sid, { body: body() }); return false; }
+    const cats = PR.cats(prog); let at = cats.length - 1; let lvl = 0; let tt = PR.nextTT(prog);
+    if (pid) { const pi = cats.findIndex((c) => c.id === pid); const pc = cats[pi]; at = PR.lastChildIdx(cats, pi); lvl = 1; tt = '';
+      if (!pc.grp) { pc.grp = true; pc.quyMo = null; pc.kh = null; pc.lk0 = null; pc.kp0 = null; pc.lkText = ''; pc.ghiChu = ''; DB.log(pc, 'Chuyển thành mục nhóm (thêm mục con)'); } }
+    const c = { id: `${prog}c${Date.now().toString(36)}`, prog, tt, lvl, ten: full, quyMo: isGrp ? null : Number(Form.v.quyMo), kh: null, lk0: isGrp ? null : 0, kp0: isGrp ? null : 0, lkText: '', ghiChu: '', grp: isGrp, order: 0, custom: true, log: [] };
+    DB.all('prCat').push(c); [...cats.slice(0, at + 1), c, ...cats.slice(at + 1)].forEach((x, i) => { x.order = i + 1; }); DB.log(c, 'Thêm hạng mục'); ui.toast(isGrp ? 'Đã thêm mục nhóm' : 'Đã thêm hạng mục', 'ok'); refresh(); return true; } }] });
+  PR.add = { sid, body };
+};
+Actions['pr-del'] = (el, d) => {
+  const c = DB.get('prCat', d.id); if (!c || !c.custom || !PR.canEdit()) return;
+  if (!PR.unused(c)) { ui.toast('Hạng mục đã có số liệu, không xóa được', 'warn'); return; }
+  ui.confirm('Xóa hạng mục?', `"${c.ten}" chưa có số liệu và sẽ bị xóa khỏi chương trình.`, () => { PR.flush(c.prog); DB.remove('prCat', c.id); ui.toast('Đã xóa hạng mục', 'ok'); refresh(); }, { okLabel: 'Xóa', okCls: 'danger' });
+};
+/** Tệp mẫu: giữ phần tiêu đề của biểu mẫu Phòng TTTT (đã xóa số liệu), dựng lại các dòng hạng mục theo danh mục hiện có (đúng thứ tự, có mục nhóm / mục con) với kiểu ô của biểu mẫu */
+PR.TSTY = {
+  tt: { head: 4, grp: [13, 14, 8, 11, 11, 16, 8, 12, 8], l1: [10, 17, 15, 11, 11, 11, 18, 12, 8], l0: [13, 17, 15, 11, 11, 11, 18, 12, 8] },
+  dt: { head: 5, grp: [13, 14, 8, 11, 11, 16, 8, 12], l1: [10, 24, 15, 8, 8, 8, 6, 31], l0: [10, 24, 15, 8, 8, 8, 6, 31] },
+};
+PR.tmplWithCustom = async (prog) => {
+  const blob = PR.tmplBlob(prog); const S = PR.TSTY[prog]; const files = await BGX.unzip(await blob.arrayBuffer());
+  const key = Object.keys(files).find((k) => /^xl\/worksheets\/sheet\d+\.xml$/.test(k)); let x = BGX.dec.decode(files[key]);
+  const cols = 'ABCDEFGHI'.slice(0, S.l0.length);
+  const rows = PR.cats(prog).map((c, i) => { const r = S.head + 1 + i; const sty = c.grp ? S.grp : c.lvl ? S.l1 : S.l0;
+    return `<row r="${r}" spans="1:${cols.length}">` + cols.split('').map((col, j) => { const st = ` s="${sty[j]}"`; const v = col === 'A' ? c.tt : col === 'B' ? c.ten : null;
+      return v == null || v === '' ? `<c r="${col}${r}"${st}/>` : `<c r="${col}${r}"${st} t="inlineStr"><is><t xml:space="preserve">${BGX.x(v)}</t></is></c>`; }).join('') + '</row>'; }).join('');
+  x = x.replace(/<row r="(\d+)"[^>]*(?:\/>|>[\s\S]*?<\/row>)/g, (m, r) => (Number(r) > S.head ? '' : m)).replace('</sheetData>', rows + '</sheetData>')
+    .replace(/<dimension ref="([A-Z]+\d+):([A-Z]+)\d+"/, `<dimension ref="$1:$2${S.head + PR.cats(prog).length}"`); files[key] = BGX.enc.encode(x);
+  return new Blob([BGX.zip(Object.keys(files).map((name) => ({ name, data: files[name] })))], { type: BGX.mime(PR.TMPL[prog].name) });
+};
+
+;
+/* ===== web/56_web_template.js ===== */
+/* 56_web_template.js — Tệp mẫu báo cáo tuần: mỗi chương trình một tệp (bản của Phòng TTTT đã xóa số liệu, còn TT, tên hạng mục, tiêu đề; kẻ đủ viền), nhúng dạng base64 để tải về từ hộp Nhập từ Excel. */
+'use strict';
+PR.TMPL = {
+  tt: { name: 'Mau_ChuongTrinhThongTin.xlsx', b64: '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' },
+  dt: { name: 'Mau_ChuongTrinhDaoTaoHuanLuyenHopTac.xlsx', b64: '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' },
+};
+PR.tmplBlob = (prog) => { const bin = atob(PR.TMPL[prog].b64); const u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return new Blob([u8], { type: BGX.mime(PR.TMPL[prog].name) }); };
+
+;
 /* ===== sys/10_sys.js ===== */
 /* ==========================================================================
    10_sys.js — Lớp kết nối MÁY CHỦ cho bản web Báo giá (bản "hệ thống").
@@ -15467,7 +15835,7 @@ const Sys = {
   vers: {}, snap: {}, cursor: 0,
   busy: false, again: false, polling: false, offline: false, dirtyUI: false, timer: null,
   cfg: { demoHints: true },
-  COLS: ['xa', 'depts', 'users', 'notifs', 'bgPhieu', 'bgAlert', 'bgBoard', 'bgProp', 'bgRemind', 'bgLog', 'bgLock', 'bgSyn', 'bgRound', 'bgSrv', 'bgItem', 'bgGroup', 'bgSet', 'bgCfg', 'bgXa', 'bgSys'],
+  COLS: ['xa', 'depts', 'users', 'notifs', 'bgPhieu', 'bgAlert', 'bgBoard', 'bgProp', 'bgRemind', 'bgLog', 'bgLock', 'bgSyn', 'bgRound', 'bgSrv', 'bgItem', 'bgGroup', 'bgSet', 'bgCfg', 'bgXa', 'bgSys', 'prCat', 'prRep'],
 };
 
 /* ---------------- Gọi API ---------------- */
@@ -15733,6 +16101,9 @@ Screens['sys-audit'] = {
   },
 };
 Actions['sys-audit-reload'] = function () { App.tmp.sysAudit = null; refresh(); };
+
+/* Chương trình khuyến nông: dữ liệu ban đầu do máy chủ nạp (server/seed.js); trình duyệt không tự nạp để tránh hai người cùng đẩy lên một lúc */
+if (typeof PR !== 'undefined') PR.ensure = () => { };
 
 </script>
 </body>

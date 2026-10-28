@@ -16,6 +16,7 @@ Ký hiệu: **X** = xem · **S** = sửa/thêm · **–** = không có · *(own)
 | Đợt điều tra giá thành | – | X | X (bỏ SĐT cán bộ điều tra) | X |
 | Phiếu điều tra giá thành | – | X | X, **bỏ họ tên và SĐT nông hộ** (BRD BR-03) | X |
 | Nhật ký thao tác của ngày, khóa sửa, bảng từ đồng nghĩa | – | X | – | X |
+| Chương trình khuyến nông (danh mục hạng mục, báo cáo tuần: Chương trình thông tin, Đào tạo huấn luyện và hợp tác) | – | X | – | X |
 | Thông báo | chỉ của mình | chỉ của mình | chỉ của mình | chỉ của mình |
 | Nhật ký hệ thống (`/api/audit`) | – | – | – | X |
 
@@ -32,6 +33,8 @@ Ký hiệu: **X** = xem · **S** = sửa/thêm · **–** = không có · *(own)
 | Đồng hồ hệ thống (`bgSys`) | – | – | – | S |
 | Đợt điều tra, phiếu điều tra, bảng từ đồng nghĩa, nhật ký | – | S | – | S |
 | Khóa sửa / duyệt | – | S, chỉ khóa của chính mình | – | – |
+| Chương trình khuyến nông: báo cáo tuần (`prRep`) | – | S (bản nháp); tiến độ và kinh phí phải là số không âm; **đã chốt thì không sửa**, không xóa; không đổi chương trình hoặc tuần | – | S (như Cấp Tỉnh) |
+| Chương trình khuyến nông: hạng mục (`prCat`) | – | S; quy mô phải lớn hơn 0; chỉ xóa hạng mục do người dùng thêm | – | S |
 | Nhật ký thao tác của ngày | **ghi thêm** | ghi thêm | – | ghi thêm (không ai sửa hoặc xóa) |
 | Nhắc nhập giá | – | – | – | – (do máy chủ tự sinh) |
 | Thông báo | gửi cho người khác; chỉ người nhận được đánh dấu đã đọc / xóa | như Cấp Xã | như Cấp Xã | như Cấp Xã |

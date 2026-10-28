@@ -15,7 +15,7 @@
     "test:e2e": "node --no-warnings tests/e2e.js",
     "test:screens": "node --no-warnings tests/screens.js",
     "test": "npm run test:api && npm run test:e2e && npm run test:flows && npm run test:screens",
-    "test:flows": "node --no-warnings tests/flows.js && node --no-warnings tests/flows2.js",
+    "test:flows": "node --no-warnings tests/flows.js && node --no-warnings tests/flows2.js && node --no-warnings tests/flows3.js",
     "pg": "node tools/pg.js"
   },
   "dependencies": {

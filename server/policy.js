@@ -5,7 +5,7 @@
 const { docs, query } = require('./db');
 const D = require('./domain');
 
-const OPERATIONAL = ['bgPhieu', 'bgAlert', 'bgBoard', 'bgProp', 'bgRemind', 'bgLog', 'bgLock', 'bgSyn', 'bgRound', 'bgSrv', 'bgItem', 'bgGroup', 'bgSet', 'bgCfg', 'bgXa', 'bgSys'];
+const OPERATIONAL = ['bgPhieu', 'bgAlert', 'bgBoard', 'bgProp', 'bgRemind', 'bgLog', 'bgLock', 'bgSyn', 'bgRound', 'bgSrv', 'bgItem', 'bgGroup', 'bgSet', 'bgCfg', 'bgXa', 'bgSys', 'prCat', 'prRep'];
 const SYNCED = new Set(['xa', 'depts', 'users', 'notifs'].concat(OPERATIONAL));
 
 /** Ngữ cảnh người dùng: tài khoản + vai trò đang chọn */
@@ -48,6 +48,7 @@ function readScope(ctx, c, doc) {
       if (ctx.level === 'tw') return strip(doc, ['farmer', 'phone', 'log']);               // BRD BR-03: Cấp TW không thấy họ tên, SĐT nông hộ
       return null;
     case 'bgLog': case 'bgLock': case 'bgSyn': return isStaff(ctx) ? doc : null;
+    case 'prCat': case 'prRep': return isStaff(ctx) ? doc : null;                          // Chương trình khuyến nông (báo cáo tuần của Phòng TTTT): chỉ Cấp Tỉnh / Admin
     default: return null;
   }
 }
@@ -125,10 +126,33 @@ async function checkWrite(ctx, c, op, old, nu) {
       }
       return null;
     }
+    case 'prCat': case 'prRep': return checkProg(ctx, c, op, old, nu);
     case 'bgPhieu': return checkPhieu(ctx, op, old, nu);
     case 'bgAlert': return checkAlert(ctx, op, old, nu);
     default: return DENY('Không có quyền.');
   }
+}
+
+/** Chương trình khuyến nông (Chương trình thông tin; Đào tạo huấn luyện và hợp tác): chỉ Cấp Tỉnh / Admin; báo cáo tuần đã chốt không sửa được; số liệu là số không âm */
+function checkProg(ctx, c, op, old, nu) {
+  if (!(ctx.level === 'tinh' || ctx.isAdmin)) return DENY('Chỉ Cấp Tỉnh / Admin quản lý Chương trình khuyến nông.');
+  const okNum = (v) => typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1e13;
+  if (c === 'prRep') {
+    if (op === 'del') return DENY('Không xóa báo cáo tuần.');
+    if (old && old.st === 'sent' && keysChanged(old, nu).length) return DENY('Báo cáo tuần đã chốt, không sửa được.');
+    if (old && (old.prog !== nu.prog || old.week !== nu.week)) return DENY('Không đổi chương trình hoặc tuần của báo cáo.');
+    if (!old && nu.st !== 'draft') return DENY('Báo cáo tuần mới phải ở trạng thái bản nháp.');
+    if (!['tt', 'dt'].includes(nu.prog) || !Number.isInteger(nu.week)) return DENY('Báo cáo thiếu chương trình hoặc tuần.');
+    for (const o of Object.values(nu.rows || {})) {
+      if (!o || typeof o !== 'object') return DENY('Dòng số liệu không hợp lệ.');
+      for (const f of ['t', 'k']) if (o[f] != null && o[f] !== '' && !okNum(o[f])) return DENY('Tiến độ và kinh phí phải là số không âm.');
+    }
+    return null;
+  }
+  if (op === 'del') return old && old.custom ? null : DENY('Chỉ xóa được hạng mục do người dùng thêm.');
+  if (!['tt', 'dt'].includes(nu.prog) || typeof nu.ten !== 'string' || !nu.ten.trim()) return DENY('Hạng mục thiếu chương trình hoặc tên.');
+  for (const f of ['quyMo', 'kh']) if (nu[f] != null && !(typeof nu[f] === 'number' && isFinite(nu[f]) && nu[f] > 0)) return DENY('Quy mô phải lớn hơn 0.');
+  return null;
 }
 
 async function checkPhieu(ctx, op, old, nu) {

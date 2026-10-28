@@ -127,6 +127,7 @@ const server = http.createServer(async (req, res) => {
 async function start(port = PORT, host = HOST) {
   await db.init();
   await seed.ensureSeeded();
+  await seed.ensureAdditive();
   const timer = ticker.start();
   return new Promise((resolve) => server.listen(port, host, () => {
     const addr = server.address();

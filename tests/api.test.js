@@ -215,3 +215,46 @@ test('phản hồi xác minh quá hạn 13:30 bị máy chủ từ chối; trư�
   await setClock('2026-10-15T12:30'); const okRes = (await xa.call('POST', '/api/sync', { ops: [put('bgAlert', rep(ycs[0]), st.vers.bgAlert[ycs[0].id])] })).body.results[0]; assert.strictEqual(okRes.ok, true, JSON.stringify(okRes));
   await setClock('2026-10-15T09:15');
 });
+
+test('Chương trình khuyến nông: chỉ Cấp Tỉnh / Admin đọc và ghi; Cấp Xã và Cấp TW không thấy, không ghi', async () => {
+  const tinh = client('0|tttt'); await tinh.login('khoa.pm.tinh'); const xa = client('0|tttt'); await xa.login('0912345678'); const tw = client('0|tttt'); await tw.login('quan.lm.tw'); const ad = client('0|tttt'); await ad.login('admin');
+  const st = (await tinh.call('GET', '/api/state')).body; assert.strictEqual(st.db.prCat.length, 25, '19 + 6 hạng mục'); assert.strictEqual(st.db.prRep.length, 4, '2 chương trình × 2 tuần');
+  for (const who of [xa, tw]) { const s = (await who.call('GET', '/api/state')).body; assert.ok(!(s.db.prCat || []).length && !(s.db.prRep || []).length, 'không nhận dữ liệu chương trình'); }
+  const draft = st.db.prRep.find((r) => r.id === 'dt|44'); assert.strictEqual(draft.st, 'draft');
+  const edit = { ...draft, rows: { dt04: { t: 2, k: 40000000, d: 'Đã mở lớp' } } };
+  for (const who of [xa, tw]) assert.strictEqual((await who.call('POST', '/api/sync', { ops: [put('prRep', edit, st.vers.prRep['dt|44'])] })).body.results[0].code, 'forbidden');
+  const ok = (await tinh.call('POST', '/api/sync', { ops: [put('prRep', edit, st.vers.prRep['dt|44'])] })).body.results[0]; assert.strictEqual(ok.ok, true, JSON.stringify(ok));
+  const sa = (await ad.call('GET', '/api/state')).body; const okAd = (await ad.call('POST', '/api/sync', { ops: [put('prRep', { ...sa.db.prRep.find((r) => r.id === 'dt|44'), rows: { dt04: { t: 3, k: 1, d: '' } } }, sa.vers.prRep['dt|44'])] })).body.results[0]; assert.strictEqual(okAd.ok, true, 'Admin (phòng TTTT) ghi được: ' + JSON.stringify(okAd));
+});
+
+test('Chương trình khuyến nông: số âm hoặc không phải số bị từ chối; báo cáo đã chốt không sửa, không xóa', async () => {
+  const tinh = client('0|tttt'); await tinh.login('khoa.pm.tinh'); const st = (await tinh.call('GET', '/api/state')).body; const v = st.vers.prRep; const draft = st.db.prRep.find((r) => r.id === 'tt|44'); const sent = st.db.prRep.find((r) => r.id === 'tt|43');
+  const code = async (doc, ver) => (await tinh.call('POST', '/api/sync', { ops: [put('prRep', doc, ver)] })).body.results[0].code;
+  assert.strictEqual(await code({ ...draft, rows: { tt02: { t: -1, k: 0, d: '' } } }, v['tt|44']), 'forbidden', 'số âm');
+  assert.strictEqual(await code({ ...draft, rows: { tt02: { t: 'abc', k: 0, d: '' } } }, v['tt|44']), 'forbidden', 'không phải số');
+  assert.strictEqual(await code({ ...sent, rows: { tt02: { t: 1, k: 0, d: '' } } }, v['tt|43']), 'forbidden', 'báo cáo đã chốt không sửa');
+  assert.strictEqual(await code({ ...draft, week: 99 }, v['tt|44']), 'forbidden', 'không đổi tuần');
+  assert.strictEqual((await tinh.call('POST', '/api/sync', { ops: [{ c: 'prRep', id: 'tt|44', op: 'del', base: v['tt|44'] }] })).body.results[0].code, 'forbidden', 'không xóa báo cáo tuần');
+  const closed = (await tinh.call('POST', '/api/sync', { ops: [put('prRep', { ...draft, st: 'sent', closedAt: '2026-11-06T10:00', rows: { tt02: { t: 1, k: 0, d: '' } } }, v['tt|44'])] })).body.results[0]; assert.strictEqual(closed.ok, true, 'chốt báo cáo nháp: ' + JSON.stringify(closed));
+  const s2 = (await tinh.call('GET', '/api/state')).body; assert.strictEqual(await code({ ...s2.db.prRep.find((r) => r.id === 'tt|44'), rows: { tt02: { t: 9, k: 0, d: '' } } }, s2.vers.prRep['tt|44']), 'forbidden', 'đã chốt thì không sửa số liệu nữa');
+});
+
+test('Chương trình khuyến nông: thêm hạng mục, xóa chỉ với hạng mục do người dùng thêm', async () => {
+  const tinh = client('0|tttt'); await tinh.login('khoa.pm.tinh'); const st = (await tinh.call('GET', '/api/state')).body;
+  const mine = { id: 'ttcTEST1', prog: 'tt', tt: '14', lvl: 0, ten: 'Hội nghị thử (cuộc)', quyMo: 5, kh: null, lk0: 0, kp0: 0, lkText: '', ghiChu: '', grp: false, order: 20, custom: true, log: [] };
+  const r1 = (await tinh.call('POST', '/api/sync', { ops: [put('prCat', mine, 0)] })).body.results[0]; assert.strictEqual(r1.ok, true, JSON.stringify(r1));
+  assert.strictEqual((await tinh.call('POST', '/api/sync', { ops: [put('prCat', { ...mine, id: 'ttcTEST2', quyMo: -3 }, 0)] })).body.results[0].code, 'forbidden', 'quy mô phải > 0');
+  assert.strictEqual((await tinh.call('POST', '/api/sync', { ops: [{ c: 'prCat', id: 'tt02', op: 'del', base: st.vers.prCat.tt02 }] })).body.results[0].code, 'forbidden', 'không xóa hạng mục của biểu mẫu');
+  const del = (await tinh.call('POST', '/api/sync', { ops: [{ c: 'prCat', id: 'ttcTEST1', op: 'del', base: r1.ver }] })).body.results[0]; assert.strictEqual(del.ok, true, JSON.stringify(del));
+});
+
+test('nạp bổ sung Chương trình khuyến nông cho cơ sở dữ liệu đã có dữ liệu (không đụng dữ liệu đang có, chạy lại an toàn)', async () => {
+  const db = require('../server/db'); const seed = require('../server/seed');
+  const before = await db.docs.count(); assert.strictEqual(await seed.ensureAdditive(), 0, 'đã có thì không nạp lại');
+  await db.query("DELETE FROM docs WHERE c IN ('prCat', 'prRep')"); const cur0 = await db.docs.cursor();
+  assert.strictEqual(await seed.ensureAdditive(), 29, 'thiếu cả hai thì nạp 25 + 4'); assert.strictEqual(await db.docs.count(), before);
+  assert.ok((await db.docs.changesSince(cur0)).length >= 29, 'thay đổi được ghi vào nhật ký đồng bộ để trình duyệt đang mở nhận được');
+  assert.strictEqual(await seed.ensureAdditive(), 0, 'chạy lại không nạp thêm');
+  await db.query("DELETE FROM docs WHERE c = 'prRep'"); assert.strictEqual(await seed.ensureAdditive(), 0, 'chỉ thiếu một collection (đã có dữ liệu của người dùng) thì không nạp để khỏi ghi đè');
+  const seedJson = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'data', 'seed.json'), 'utf8')); for (const d of seedJson.prRep) await db.docs.put('prRep', d.id, d, 'test');
+});
