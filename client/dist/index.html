@@ -1668,6 +1668,7 @@ button.wxa:hover{background:#DCEFE1;color:#14693A}
 @media (max-width:640px){.aip,.aip.big{right:0;left:0;bottom:0;width:100%;height:78vh;max-height:none;border-radius:16px 16px 0 0}}
 .aimn{background:#FFF7E0;color:#6B4A00;padding:8px 12px;font-size:12.5px;border-bottom:1px solid #F0DFA8}
 body.web .aiin input:focus-visible{outline:0}
+.aitag{display:inline-block;margin:0 6px 6px 0;padding:1px 8px;border-radius:999px;background:#FFF4D6;color:#7A5200;border:1px solid #F4B63E;font-size:12px;font-weight:700}
 
 /* sys/10_sys.css */
 /* Bản hệ thống: không có bảng demo; ẩn gợi ý tài khoản dùng thử khi máy chủ đặt BG_DEMO_HINTS=0 */
@@ -15913,7 +15914,7 @@ PR.tmplBlob = (prog) => { const bin = atob(PR.TMPL[prog].b64); const u8 = new Ui
 /* ==========================================================================
    57_web_ai.js — Bản web · Trợ lý AI trên thanh đầu trang (FN-AI-05.04, BRD AI dùng chung các phòng)
    Biểu tượng AI cạnh chuông thông báo; bấm mở khung chat nổi (thu nhỏ, phóng to, đóng), có chọn chức năng AI, câu hỏi gợi ý,
-   tệp đính kèm, nhắc xem lại cuộc trò chuyện trước. Chỉ Cấp Tỉnh và Admin (hỗ trợ) thấy, theo ma trận phân quyền của BRD AI.
+   tệp đính kèm, nhắc xem lại cuộc trò chuyện trước. Cấp Tỉnh và Admin dùng được, theo ma trận phân quyền của BRD AI v1.3. Câu trả lời về dữ liệu có “Lấy lúc HH:mm”; phần chưa duyệt gắn nhãn “Chưa duyệt”.
    Đây là BẢN MÔ PHỎNG: câu trả lời lấy từ dữ liệu của prototype bằng quy tắc, chưa dùng mô hình AI thật. Chỉ chế độ Hỏi đáp chạy được;
    Sinh văn bản, Trích xuất dữ liệu, Gợi ý bất thường là bản thiết kế. Mỗi câu trả lời nêu nguồn; từ chối việc ngoài phạm vi và việc thay người dùng.
    ========================================================================== */
@@ -15937,6 +15938,9 @@ AI.chips = () => {
   return /^pr-/.test(s) ? [b, c, a] : [a, b, c];
 };
 
+/* Câu hỏi về tiến độ, trạng thái trả dữ liệu hiện thời; phần chưa duyệt gắn nhãn “Chưa duyệt” (NT-10, FN-AI-05.04 BR-06) */
+AI.draftTag = (date) => (['approved', 'reopen'].includes(BG.boardPeek(date).st) ? null : 'Chưa duyệt');
+
 /* ---------- Trả lời (quy tắc trên dữ liệu prototype; không suy đoán) ---------- */
 AI.answer = (q) => {
   const n = BGX.normH(q); const has = (re) => re.test(n);
@@ -15950,16 +15954,17 @@ AI.answer = (q) => {
   if (has(/(bao cao tuan|chuong trinh)/) && has(/(chot|trang thai|xong|chua|dang)/)) {
     try { PR.ensure(); } catch (e) { /* bỏ qua */ }
     const rows = ['tt', 'dt'].map((p) => { const rs = PR.reps(p); const l = rs[rs.length - 1]; return l ? `${PR.PROG[p].title}: ${PR.wlabel(l)} — ${l.st === 'sent' ? 'đã chốt' : 'bản nháp'}` : null; }).filter(Boolean);
-    if (rows.length) return { t: rows.join('\n'), src: 'Chương trình khuyến nông · báo cáo tuần mới nhất', open: { s: 'pr-tt', label: 'Mở báo cáo tuần' } };
+    const draft = ['tt', 'dt'].some((p) => { const rs = PR.reps(p); const l = rs[rs.length - 1]; return !!l && l.st !== 'sent'; });
+    if (rows.length) return { t: rows.join('\n'), src: 'Chương trình khuyến nông · báo cáo tuần mới nhất', open: { s: 'pr-tt', label: 'Mở báo cáo tuần' }, data: true, tag: draft ? 'Chưa duyệt' : null };
   }
   if (has(/(xa|phuong)/) && has(/(chua|con|thieu)/) && has(/(gui|nhap|bao gia)/)) {
     const date = BG.workDate(); if (!BG.isDay(date)) return { t: `Ngày ${fmt.date(date)} không phải ngày báo giá nên chưa có số liệu để trả lời.`, src: 'Cấu hình kỳ báo giá' };
     const all = BG.progRows(date); const pend = all.filter((r) => ['chuanhap', 'nhap', 'khongnop'].includes(r.k)); const sent = all.length - pend.length;
-    return { t: pend.length ? `Ngày ${fmt.date(date)}: ${sent}/${all.length} xã đã gửi báo giá; còn ${pend.length} xã chưa gửi: ${pend.map((r) => r.x.ten).join(', ')}.` : `Ngày ${fmt.date(date)}: cả ${all.length} xã đã gửi báo giá.`, src: `Tiến độ nhập giá · ngày ${fmt.date(date)}`, open: { s: 'bg-progress', label: 'Mở Tiến độ nhập giá' } };
+    return { t: pend.length ? `Ngày ${fmt.date(date)}: ${sent}/${all.length} xã đã gửi báo giá; còn ${pend.length} xã chưa gửi: ${pend.map((r) => r.x.ten).join(', ')}.` : `Ngày ${fmt.date(date)}: cả ${all.length} xã đã gửi báo giá.`, src: `Tiến độ nhập giá · ngày ${fmt.date(date)}`, open: { s: 'bg-progress', label: 'Mở Tiến độ nhập giá' }, data: true, tag: AI.draftTag(date) };
   }
   if (has(/(canh bao|bat thuong)/) && has(/(con|bao nhieu|may|chua)/)) {
     let k = 0; try { k = BG.unhandled(bgToday()).length; } catch (e) { return { t: 'Chưa đủ thông tin để trả lời câu hỏi này.', src: '—' }; }
-    return { t: k ? `Hôm nay còn ${k} cảnh báo biến động chưa xử lý.` : 'Hôm nay không còn cảnh báo biến động nào chưa xử lý.', src: `Kiểm duyệt & công bố · ngày ${fmt.date(bgToday())}`, open: { s: 'bg-review', label: 'Mở Kiểm duyệt & công bố' } };
+    return { t: k ? `Hôm nay còn ${k} cảnh báo biến động chưa xử lý.` : 'Hôm nay không còn cảnh báo biến động nào chưa xử lý.', src: `Kiểm duyệt & công bố · ngày ${fmt.date(bgToday())}`, open: { s: 'bg-review', label: 'Mở Kiểm duyệt & công bố' }, data: true, tag: AI.draftTag(bgToday()) };
   }
   return { t: 'Chưa đủ thông tin để trả lời, tôi không suy đoán. Bạn thử hỏi về: xã chưa gửi báo giá, cảnh báo chưa xử lý, trạng thái báo cáo tuần, hoặc cách chốt báo cáo tuần, nhập từ Excel, duyệt bảng giá.', src: '—' };
 };
@@ -15983,7 +15988,7 @@ AI.build = () => {
     else if (a === 'attach') AI.pickFile();
     else if (a === 'unfile') { AI.file = null; AI.draw(); }
     else if (a === 'open') { const o = JSON.parse(decodeURIComponent(v)); nav.reset(o.s, o.p || {}); }
-    else if (a === 'up' || a === 'down') { const m = AI.msgs[+t.dataset.i]; if (m) { m.fb = m.fb === a ? null : a; if (m.fb === 'down') ui.toast('Đã ghi nhận phản hồi “Báo sai” để Admin xem lại', 'ok'); AI.draw(); } }
+    else if (a === 'up' || a === 'down') { const m = AI.msgs[+t.dataset.i]; if (m) { m.fb = m.fb === a ? null : a; if (m.fb === 'down') ui.toast('Đã ghi nhận phản hồi “Báo sai”; Admin xem tại Quản trị Chatbot AI', 'ok'); AI.draw(); } }
   });
   el.addEventListener('input', (e) => { if (e.target.id === 'aiInp') { const b = el.querySelector('[data-ai="send"]'); if (b) b.disabled = !e.target.value.trim(); } });
   el.addEventListener('keydown', (e) => { if (e.target.id === 'aiInp' && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); AI.submit(); } if (e.key === 'Escape') { AI.st = 'min'; AI.sync(); } });
@@ -15992,7 +15997,7 @@ AI.build = () => {
 AI.draw = (scroll) => {
   if (!AI.el) AI.build(); const m = AI.MODES.find((x) => x.id === AI.mode); const keep = AI.el.querySelector('#aiInp'); const val = keep ? keep.value : '';
   const msgs = AI.msgs.map((x, i) => x.r === 'u' ? `<div class="aim u"><div class="aib">${esc(x.t)}${x.file ? `<div class="aif">${icon('file', 14)}${esc(x.file)}</div>` : ''}</div></div>`
-    : `<div class="aim b"><span class="aiav">${AI.icon(20, 'm' + i)}</span><div class="aib">${esc(x.t).replace(/\n/g, '<br>')}${x.src ? `<div class="ais">Nguồn: ${esc(x.src)}</div>` : ''}
+    : `<div class="aim b"><span class="aiav">${AI.icon(20, 'm' + i)}</span><div class="aib">${x.tag ? `<span class="aitag">${esc(x.tag)}</span>` : ''}${esc(x.t).replace(/\n/g, '<br>')}${x.src ? `<div class="ais">Nguồn: ${esc(x.src)}${x.at ? ` · Lấy lúc ${esc(x.at)}` : ''}</div>` : ''}
         <div class="aia">${x.open ? `<button class="aib2" data-ai="open" data-v="${encodeURIComponent(JSON.stringify(x.open))}">${esc(x.open.label)}</button>` : ''}<button class="aifb ${x.fb === 'up' ? 'on' : ''}" data-ai="up" data-i="${i}" title="Hữu ích" aria-label="Hữu ích">${icon('check', 14)} Hữu ích</button><button class="aifb ${x.fb === 'down' ? 'on' : ''}" data-ai="down" data-i="${i}" title="Báo sai" aria-label="Báo sai">${icon('alert', 14)} Báo sai</button></div></div></div>`).join('');
   const greet = `<div class="aig"><div class="aigl">${AI.icon(26, 'g')}<b>Trợ lý AI</b></div><div class="aigs">${m.ok ? 'Trợ lý hỗ trợ công việc hằng ngày trên Hệ thống Khuyến nông, chỉ dùng dữ liệu trong phạm vi quyền của bạn.' : `Chức năng ${esc(m.t)} (${m.fn}) đang ở bản thiết kế, chưa chạy trong prototype. Chọn chế độ Hỏi đáp để thử.`}</div>
     ${m.ok ? AI.chips().map((c) => `<button class="aichip" data-ai="chip" data-v="${esc(c)}">${esc(c)}</button>`).join('') : ''}</div>`;
@@ -16015,6 +16020,7 @@ AI.send = (text) => {
   setTimeout(() => {
     if (id !== AI.seq) return; let a;
     try { a = f ? { t: `Đã nhận tệp “${f}”. Việc đọc tệp và sinh văn bản thuộc chức năng Hỗ trợ sinh văn bản (FN-AI-05.01), chưa chạy trong prototype. Tôi vẫn trả lời câu hỏi của bạn:\n${AI.answer(text).t}`, src: 'FN-AI-05.01 · bản thiết kế' } : AI.answer(text); } catch (e) { console.error(e); a = { t: 'Chưa đủ thông tin để trả lời.', src: '—' }; }
+    if (a.data) a.at = fmt.time(now());
     AI.msgs.push(Object.assign({ r: 'b', fb: null }, a)); AI.draw(true);
   }, 450);
 };
